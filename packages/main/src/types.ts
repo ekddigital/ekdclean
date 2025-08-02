@@ -27,3 +27,25 @@ export interface CleanResult {
   errors: string[];
   duration: number;
 }
+
+export interface ScanResult {
+  id: string;
+  name: string;
+  type: "cache" | "temp" | "log" | "duplicate" | "large";
+  size: number;
+  files: number;
+  path: string;
+  description: string;
+  safe: boolean;
+  scanTime: Date;
+}
+
+export interface ActivityItem {
+  id: string;
+  type: "scan" | "clean" | "optimize";
+  title: string;
+  subtitle: string;
+  timestamp: Date;
+  status: "completed" | "running" | "error";
+  details?: string;
+}

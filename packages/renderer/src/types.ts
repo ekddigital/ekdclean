@@ -11,10 +11,6 @@ export interface SystemInfo {
   nodeVersion: string;
   electronVersion: string;
   appVersion: string;
-  uptime: number;
-  loadAverage: number[];
-  homeDirectory: string;
-  tempDirectory: string;
 }
 
 export interface JunkFile {
@@ -34,6 +30,18 @@ export interface JunkFile {
 }
 
 export interface ScanResult {
+  id: string;
+  name: string;
+  type: "cache" | "temp" | "log" | "duplicate" | "large";
+  size: number;
+  files: number;
+  path: string;
+  description: string;
+  safe: boolean;
+  scanTime: Date;
+}
+
+export interface OldScanResult {
   junkFiles: JunkFile[];
   totalSize: number;
   categories: {
@@ -59,21 +67,29 @@ export interface CleanResult {
 
 export interface ActivityItem {
   id: string;
-  type: "scan" | "clean" | "optimize" | "update";
+  type: "scan" | "clean" | "optimize";
   title: string;
-  description: string;
+  subtitle: string;
   timestamp: Date;
-  size?: number;
-  status: "completed" | "failed" | "in-progress";
+  status: "completed" | "running" | "error";
+  details?: string;
 }
 
 // Electron API types
 export interface ElectronAPI {
   getSystemInfo: () => Promise<SystemInfo>;
+  scanSystem: () => Promise<ScanResult[]>;
+  getMemoryUsage: () => Promise<{
+    used: number;
+    total: number;
+    percentage: number;
+  }>;
+  getRecentActivity: () => Promise<ActivityItem[]>;
+  cleanFiles: (scanResults: ScanResult[]) => Promise<CleanResult>;
+  // Legacy methods for compatibility
   startScan: (categories: string[]) => Promise<void>;
   getScanProgress: () => Promise<{ progress: number; currentFile: string }>;
   getScanResults: () => Promise<ScanResult>;
-  cleanFiles: (filePaths: string[]) => Promise<CleanResult>;
   getActivityHistory: () => Promise<ActivityItem[]>;
   onScanProgress: (
     callback: (progress: { progress: number; currentFile: string }) => void

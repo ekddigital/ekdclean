@@ -3,56 +3,56 @@
 
 import { createTheme, MantineColorsTuple } from "@mantine/core";
 
-// EKD Digital Brand Colors
-const ekdBlue: MantineColorsTuple = [
-  "#e3f2fd",
-  "#bbdefb",
-  "#90caf9",
-  "#64b5f6",
-  "#42a5f5",
-  "#2196f3",
-  "#1e88e5",
-  "#1976d2",
-  "#1565c0",
-  "#0d47a1",
+// EKD Digital Brand Colors - Deep Gold & Premium Dark
+const ekdGold: MantineColorsTuple = [
+  "#fffbeb",
+  "#fef3c7",
+  "#fde68a",
+  "#fcd34d",
+  "#fbbf24",
+  "#f59e0b", // EKD Primary Gold
+  "#d97706",
+  "#b45309",
+  "#92400e",
+  "#78350f",
 ];
 
-const ekdPurple: MantineColorsTuple = [
-  "#f3e5f5",
-  "#e1bee7",
-  "#ce93d8",
-  "#ba68c8",
-  "#ab47bc",
-  "#9c27b0",
-  "#8e24aa",
-  "#7b1fa2",
-  "#6a1b9a",
-  "#4a148c",
+const ekdDark: MantineColorsTuple = [
+  "#f8fafc",
+  "#f1f5f9",
+  "#e2e8f0",
+  "#cbd5e1",
+  "#94a3b8",
+  "#64748b",
+  "#475569",
+  "#334155",
+  "#1e293b",
+  "#0f172a",
 ];
 
-const ekdGray: MantineColorsTuple = [
-  "#fafafa",
-  "#f5f5f5",
-  "#eeeeee",
-  "#e0e0e0",
-  "#bdbdbd",
-  "#9e9e9e",
-  "#757575",
-  "#616161",
-  "#424242",
-  "#212121",
+const ekdAccent: MantineColorsTuple = [
+  "#fef7ee",
+  "#fed7aa",
+  "#fdba74",
+  "#fb923c",
+  "#f97316", // Orange accent
+  "#ea580c",
+  "#dc2626",
+  "#b91c1c",
+  "#991b1b",
+  "#7f1d1d",
 ];
 
 export const theme = createTheme({
   // Color scheme
   colors: {
-    ekdBlue,
-    ekdPurple,
-    ekdGray,
+    ekdGold,
+    ekdDark,
+    ekdAccent,
   },
 
-  primaryColor: "ekdBlue",
-  primaryShade: { light: 6, dark: 8 },
+  primaryColor: "ekdGold",
+  primaryShade: { light: 5, dark: 6 },
 
   // Typography
   fontFamily:

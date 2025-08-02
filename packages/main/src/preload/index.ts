@@ -2,15 +2,26 @@
 // Built by EKD Digital
 
 import { contextBridge, ipcRenderer } from "electron";
-import { SystemInfo, JunkFile, CleanResult } from "../types";
+import { SystemInfo, ScanResult, CleanResult, ActivityItem } from "../types";
 
 export interface ElectronAPI {
   // System Information
   getSystemInfo: () => Promise<SystemInfo>;
+  getMemoryUsage: () => Promise<{
+    used: number;
+    total: number;
+    percentage: number;
+  }>;
 
-  // File Operations
-  scanForJunk: () => Promise<JunkFile[]>;
-  cleanFiles: (filePaths: string[]) => Promise<CleanResult>;
+  // Real scanning and cleaning
+  scanSystem: () => Promise<ScanResult[]>;
+  cleanFiles: (scanResults: ScanResult[]) => Promise<CleanResult>;
+
+  // Activity tracking
+  getRecentActivity: () => Promise<ActivityItem[]>;
+
+  // Legacy compatibility
+  scanForJunk: () => Promise<ScanResult[]>;
 
   // Window Management
   minimizeWindow: () => void;
@@ -29,11 +40,20 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getSystemInfo: (): Promise<SystemInfo> =>
     ipcRenderer.invoke("get-system-info"),
 
-  // File Operations
-  scanForJunk: (): Promise<JunkFile[]> => ipcRenderer.invoke("scan-for-junk"),
+  getMemoryUsage: () => ipcRenderer.invoke("get-memory-usage"),
 
-  cleanFiles: (filePaths: string[]): Promise<CleanResult> =>
-    ipcRenderer.invoke("clean-files", filePaths),
+  // Real scanning and cleaning
+  scanSystem: (): Promise<ScanResult[]> => ipcRenderer.invoke("scan-system"),
+
+  cleanFiles: (scanResults: ScanResult[]): Promise<CleanResult> =>
+    ipcRenderer.invoke("clean-files", scanResults),
+
+  // Activity tracking
+  getRecentActivity: (): Promise<ActivityItem[]> =>
+    ipcRenderer.invoke("get-recent-activity"),
+
+  // Legacy compatibility
+  scanForJunk: (): Promise<ScanResult[]> => ipcRenderer.invoke("scan-for-junk"),
 
   // Window Management
   minimizeWindow: () => ipcRenderer.send("window-minimize"),
