@@ -1,4 +1,4 @@
-// EKD Clean - Main Applimport { SystemInfo } from '../../shared/types';cation Component
+// EKD Clean - Main Application Component
 // Built by EKD Digital
 
 import React, { useState, useEffect } from "react";
@@ -6,13 +6,13 @@ import { motion } from "framer-motion";
 import { AppShell } from "@mantine/core";
 import { SystemInfo } from "./types";
 import { MainDashboard } from "./components/MainDashboard";
+import { Sidebar } from "./components/Sidebar";
 import { LoadingScreen } from "./components/LoadingScreen";
 
 const App: React.FC = () => {
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isScanning, setIsScanning] = useState(false);
-  //
+  const [activeItem, setActiveItem] = useState("smart-scan");
 
   useEffect(() => {
     // Initialize app and load system information
@@ -38,10 +38,6 @@ const App: React.FC = () => {
             nodeVersion: "22.16.0",
             electronVersion: "32.0.1",
             appVersion: "1.0.0",
-            uptime: 86400,
-            loadAverage: [1.2, 1.5, 1.3],
-            homeDirectory: "/Users/user",
-            tempDirectory: "/tmp",
           });
         }
 
@@ -63,6 +59,7 @@ const App: React.FC = () => {
   return (
     <AppShell
       padding={0}
+      navbar={{ width: 280, breakpoint: "sm" }}
       style={{
         background:
           "linear-gradient(135deg, #1a1a1a 0%, #2d1b1b 25%, #3d2914 50%, #1f1f1f 75%, #0f0f0f 100%)",
@@ -71,6 +68,18 @@ const App: React.FC = () => {
         minHeight: "100vh",
       }}
     >
+      {/* Sidebar */}
+      <AppShell.Navbar
+        p="md"
+        style={{
+          background: "rgba(30, 30, 30, 0.9)",
+          backdropFilter: "blur(20px)",
+          borderRight: "1px solid rgba(245, 158, 11, 0.1)",
+        }}
+      >
+        <Sidebar activeItem={activeItem} onItemSelect={setActiveItem} />
+      </AppShell.Navbar>
+
       {/* Main Content */}
       <AppShell.Main style={{ height: "100vh", overflow: "hidden" }}>
         <motion.div
@@ -79,11 +88,7 @@ const App: React.FC = () => {
           transition={{ duration: 0.6, ease: "easeOut" }}
           style={{ height: "100%" }}
         >
-          <MainDashboard
-            systemInfo={systemInfo}
-            isScanning={isScanning}
-            onStartScan={() => setIsScanning(!isScanning)}
-          />
+          <MainDashboard activeItem={activeItem} />
         </motion.div>
       </AppShell.Main>
     </AppShell>

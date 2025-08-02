@@ -468,34 +468,6 @@ class EKDCleanApp {
     ipcMain.on("window-close", () => {
       this.mainWindow?.close();
     });
-
-    // Clean files
-    ipcMain.handle("clean-files", async (_event, filePaths: string[]) => {
-      // TODO: Implement file cleaning
-      return {
-        success: true,
-        filesDeleted: filePaths.length,
-        spaceFreed: 0,
-        errors: [],
-      };
-    });
-
-    // Window controls
-    ipcMain.on("window-minimize", () => {
-      this.mainWindow?.minimize();
-    });
-
-    ipcMain.on("window-maximize", () => {
-      if (this.mainWindow?.isMaximized()) {
-        this.mainWindow.unmaximize();
-      } else {
-        this.mainWindow?.maximize();
-      }
-    });
-
-    ipcMain.on("window-close", () => {
-      this.mainWindow?.close();
-    });
   }
 }
 
