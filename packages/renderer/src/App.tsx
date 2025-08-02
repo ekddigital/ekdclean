@@ -12,6 +12,7 @@ const App: React.FC = () => {
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isScanning, setIsScanning] = useState(false);
+//   
 
   useEffect(() => {
     // Initialize app and load system information
