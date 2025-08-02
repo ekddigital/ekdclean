@@ -12,6 +12,7 @@ import {
   Badge,
   Divider,
 } from "@mantine/core";
+import { Sun, Moon } from "lucide-react";
 
 interface SidebarItem {
   id: string;
@@ -24,11 +25,15 @@ interface SidebarItem {
 interface SidebarProps {
   activeItem: string;
   onItemSelect: (itemId: string) => void;
+  isDarkMode?: boolean;
+  onThemeToggle?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   activeItem,
   onItemSelect,
+  isDarkMode = false,
+  onThemeToggle,
 }) => {
   const sidebarItems: SidebarItem[] = [
     {
@@ -93,22 +98,60 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <div className="h-full bg-white/90 backdrop-blur-xl border-r border-gray-200/50 w-72 flex flex-col">
+    <div
+      className={`h-full backdrop-blur-xl border-r w-72 flex flex-col ${
+        isDarkMode
+          ? "bg-gray-900/90 border-gray-700/50"
+          : "bg-white/90 border-gray-200/50"
+      }`}
+    >
       {/* Header */}
-      <div className="p-6 border-b border-gray-200/30">
-        <div className="flex items-center gap-3 mb-1">
-          <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center shadow-lg">
-            <span className="text-white text-sm font-bold">E</span>
+      <div
+        className={`p-6 border-b ${
+          isDarkMode ? "border-gray-700/30" : "border-gray-200/30"
+        }`}
+      >
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center shadow-lg">
+              <span className="text-white text-sm font-bold">E</span>
+            </div>
+            <Text
+              size="lg"
+              fw={700}
+              className="bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent"
+            >
+              EKD Clean
+            </Text>
           </div>
-          <Text
-            size="lg"
-            fw={700}
-            className="bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent"
-          >
-            EKD Clean
-          </Text>
+
+          {/* Theme Toggle */}
+          {onThemeToggle && (
+            <Tooltip
+              label={
+                isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"
+              }
+            >
+              <ActionIcon
+                onClick={onThemeToggle}
+                variant="subtle"
+                size="md"
+                className={`transition-all ${
+                  isDarkMode
+                    ? "hover:bg-amber-500/20 text-amber-400"
+                    : "hover:bg-amber-100/50 text-amber-600"
+                }`}
+              >
+                {isDarkMode ? (
+                  <Sun className="h-5 w-5" />
+                ) : (
+                  <Moon className="h-5 w-5" />
+                )}
+              </ActionIcon>
+            </Tooltip>
+          )}
         </div>
-        <Text size="xs" c="dimmed" fw={500}>
+        <Text size="xs" c={isDarkMode ? "gray.4" : "dimmed"} fw={500}>
           Professional System Optimizer
         </Text>
       </div>
@@ -138,8 +181,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <motion.div
                   className={`relative p-5 rounded-2xl cursor-pointer transition-all duration-200 ${
                     activeItem === item.id
-                      ? "bg-gradient-to-r from-amber-100/80 via-orange-100/80 to-yellow-100/80 border border-amber-300/50 shadow-xl shadow-amber-200/30"
-                      : "hover:bg-amber-50/50 hover:border-amber-200/30 border border-transparent"
+                      ? isDarkMode
+                        ? "bg-gradient-to-r from-amber-900/40 via-orange-900/40 to-yellow-900/40 border border-amber-400/40 shadow-xl shadow-amber-500/20"
+                        : "bg-gradient-to-r from-amber-100/80 via-orange-100/80 to-yellow-100/80 border border-amber-300/50 shadow-xl shadow-amber-200/30"
+                      : isDarkMode
+                        ? "hover:bg-amber-900/20 hover:border-amber-400/20 border border-transparent"
+                        : "hover:bg-amber-50/50 hover:border-amber-200/30 border border-transparent"
                   }`}
                   onClick={() => onItemSelect(item.id)}
                   whileHover={{
@@ -175,7 +222,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <Text
                           size="md"
                           fw={activeItem === item.id ? 700 : 600}
-                          c={activeItem === item.id ? "dark.9" : "dark.6"}
+                          c={
+                            isDarkMode
+                              ? activeItem === item.id
+                                ? "white"
+                                : "gray.3"
+                              : activeItem === item.id
+                                ? "dark.9"
+                                : "dark.6"
+                          }
                           className={
                             activeItem === item.id ? "text-shadow" : ""
                           }
@@ -236,22 +291,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Footer */}
-      <div className="p-6 border-t border-gray-200/50">
-        <Divider color="rgba(156, 163, 175, 0.3)" mb="lg" />
+      <div
+        className={`p-6 border-t ${
+          isDarkMode ? "border-gray-700/50" : "border-gray-200/50"
+        }`}
+      >
+        <Divider
+          color={
+            isDarkMode ? "rgba(75, 85, 99, 0.3)" : "rgba(156, 163, 175, 0.3)"
+          }
+          mb="lg"
+        />
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.8, duration: 0.4 }}
         >
           <Group justify="space-between" align="center">
-            <Text size="xs" c="dark.4" fw={600}>
+            <Text size="xs" c={isDarkMode ? "gray.4" : "dark.4"} fw={600}>
               v1.0.0 • EKD Digital
             </Text>
             <ActionIcon
               variant="subtle"
               size="md"
-              className="hover:bg-amber-100/50 transition-colors"
-              style={{ color: "rgba(120, 113, 108, 0.8)" }}
+              className={`transition-colors ${
+                isDarkMode ? "hover:bg-amber-500/20" : "hover:bg-amber-100/50"
+              }`}
+              style={{
+                color: isDarkMode
+                  ? "rgba(245, 158, 11, 0.8)"
+                  : "rgba(120, 113, 108, 0.8)",
+              }}
             >
               ⚙️
             </ActionIcon>

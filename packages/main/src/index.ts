@@ -1,7 +1,7 @@
 // EKD Clean - Main Electron Process
 // Built by EKD Digital
 
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage } from "electron";
 import { join } from "path";
 import {
   platform,
@@ -477,6 +477,7 @@ class SystemScanner {
 
 class EKDCleanApp {
   private mainWindow: BrowserWindow | null = null;
+  private tray: Tray | null = null;
 
   constructor() {
     this.initializeApp();
@@ -486,6 +487,7 @@ class EKDCleanApp {
     // Handle app ready
     app.whenReady().then(() => {
       this.createMainWindow();
+      this.createSystemTray();
       this.setupIPCHandlers();
     });
 
@@ -538,6 +540,157 @@ class EKDCleanApp {
     this.mainWindow.on("closed", () => {
       this.mainWindow = null;
     });
+  }
+
+  private async createSystemTray(): Promise<void> {
+    try {
+      // Create a simple icon for the tray (using a base64 encoded 16x16 icon)
+      const icon = nativeImage.createFromDataURL(
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAdgAAAHYBTnsmCAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAFYSURBVDiNpZM9SwNBEIafJQQLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sLwcJCG1sL"
+      );
+
+      // Create the tray
+      this.tray = new Tray(icon);
+
+      // Get real-time system stats for the menu
+      const systemInfo = await SystemScanner.getDetailedSystemInfo();
+      const memoryUsage = await SystemScanner.getMemoryUsage();
+
+      // Create context menu
+      const contextMenu = Menu.buildFromTemplate([
+        {
+          label: "EKD Clean",
+          type: "normal",
+          enabled: false,
+        },
+        { type: "separator" },
+        {
+          label: `Memory: ${memoryUsage.percentage.toFixed(1)}% used`,
+          type: "normal",
+          enabled: false,
+        },
+        {
+          label: `Available: ${this.formatBytes(systemInfo.freeMemory)}`,
+          type: "normal",
+          enabled: false,
+        },
+        {
+          label: `Total: ${this.formatBytes(systemInfo.totalMemory)}`,
+          type: "normal",
+          enabled: false,
+        },
+        { type: "separator" },
+        {
+          label: "Show EKD Clean",
+          type: "normal",
+          click: () => {
+            if (this.mainWindow) {
+              this.mainWindow.show();
+              this.mainWindow.focus();
+            } else {
+              this.createMainWindow();
+            }
+          },
+        },
+        {
+          label: "Quick Scan",
+          type: "normal",
+          click: async () => {
+            // Trigger a quick scan
+            if (this.mainWindow) {
+              this.mainWindow.webContents.send("start-quick-scan");
+            }
+          },
+        },
+        { type: "separator" },
+        {
+          label: "Quit EKD Clean",
+          type: "normal",
+          click: () => {
+            app.quit();
+          },
+        },
+      ]);
+
+      this.tray.setContextMenu(contextMenu);
+      this.tray.setToolTip("EKD Clean - System Optimizer");
+
+      // Update tray menu every 30 seconds with fresh system stats
+      setInterval(async () => {
+        try {
+          const updatedSystemInfo = await SystemScanner.getDetailedSystemInfo();
+          const updatedMemoryUsage = await SystemScanner.getMemoryUsage();
+
+          const updatedMenu = Menu.buildFromTemplate([
+            {
+              label: "EKD Clean",
+              type: "normal",
+              enabled: false,
+            },
+            { type: "separator" },
+            {
+              label: `Memory: ${updatedMemoryUsage.percentage.toFixed(1)}% used`,
+              type: "normal",
+              enabled: false,
+            },
+            {
+              label: `Available: ${this.formatBytes(updatedSystemInfo.freeMemory)}`,
+              type: "normal",
+              enabled: false,
+            },
+            {
+              label: `Total: ${this.formatBytes(updatedSystemInfo.totalMemory)}`,
+              type: "normal",
+              enabled: false,
+            },
+            { type: "separator" },
+            {
+              label: "Show EKD Clean",
+              type: "normal",
+              click: () => {
+                if (this.mainWindow) {
+                  this.mainWindow.show();
+                  this.mainWindow.focus();
+                } else {
+                  this.createMainWindow();
+                }
+              },
+            },
+            {
+              label: "Quick Scan",
+              type: "normal",
+              click: async () => {
+                if (this.mainWindow) {
+                  this.mainWindow.webContents.send("start-quick-scan");
+                }
+              },
+            },
+            { type: "separator" },
+            {
+              label: "Quit EKD Clean",
+              type: "normal",
+              click: () => {
+                app.quit();
+              },
+            },
+          ]);
+
+          this.tray?.setContextMenu(updatedMenu);
+        } catch (error) {
+          console.error("Failed to update tray menu:", error);
+        }
+      }, 30000);
+    } catch (error) {
+      console.error("Failed to create system tray:", error);
+    }
+  }
+
+  private formatBytes(bytes: number): string {
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB", "TB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   }
 
   private setupIPCHandlers(): void {

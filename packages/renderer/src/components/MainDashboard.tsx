@@ -20,9 +20,13 @@ import { SoundManager } from "../utils/SoundManager";
 
 interface MainDashboardProps {
   activeItem: string;
+  isDarkMode?: boolean;
 }
 
-export const MainDashboard: React.FC<MainDashboardProps> = ({ activeItem }) => {
+export const MainDashboard: React.FC<MainDashboardProps> = ({
+  activeItem,
+  isDarkMode = false,
+}) => {
   const [scanProgress, setScanProgress] = useState(0);
   const [scanResults, setScanResults] = useState<ScanResult[]>([]);
   const [isScanning, setIsScanning] = useState(false);
@@ -175,9 +179,21 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ activeItem }) => {
   };
 
   return (
-    <div className="h-full bg-gradient-to-br from-gray-50 via-white to-gray-100 overflow-hidden">
+    <div
+      className={`h-full overflow-y-auto ${
+        isDarkMode
+          ? "bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900"
+          : "bg-gradient-to-br from-gray-50 via-white to-gray-100"
+      }`}
+    >
       {/* Premium Header */}
-      <div className="bg-white/80 backdrop-blur-xl border-b border-gray-200/50 px-8 py-6">
+      <div
+        className={`backdrop-blur-xl border-b px-8 py-6 ${
+          isDarkMode
+            ? "bg-gray-900/80 border-gray-700/50"
+            : "bg-white/80 border-gray-200/50"
+        }`}
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3">
