@@ -1,0 +1,67 @@
+{
+    "name": "ekd-clean",
+    "version": "1.0.0",
+    "description": "A robust cross-platform system optimization tool by EKD Digital",
+    "main": "dist/main/src/index.js",
+    "scripts": {
+        "dev": "concurrently \"npm run dev:main\" \"npm run dev:renderer\"",
+        "dev:main": "tsc -p packages/main --watch",
+        "dev:renderer": "cd packages/renderer && vite",
+        "build": "npm run build:main && npm run build:renderer",
+        "build:main": "tsc -p packages/main",
+        "build:renderer": "cd packages/renderer && vite build",
+        "start": "electron dist/main/src/index.js",
+        "package": "electron-builder",
+        "clean": "rm -rf dist",
+        "lint": "eslint packages/*/src/**/*.{ts,tsx}",
+        "format": "prettier --write \"packages/*/src/**/*.{ts,tsx,js,jsx,json,md}\""
+    },
+    "dependencies": {
+        "electron": "^32.0.1",
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1",
+        "@mantine/core": "^7.12.2",
+        "@mantine/hooks": "^7.12.2",
+        "@mantine/notifications": "^7.12.2",
+        "framer-motion": "^11.5.4",
+        "zustand": "^4.5.5",
+        "better-sqlite3": "^11.3.0",
+        "fast-glob": "^3.3.2",
+        "fs-extra": "^11.2.0"
+    },
+    "devDependencies": {
+        "@types/node": "^22.5.0",
+        "@types/react": "^18.3.5",
+        "@types/react-dom": "^18.3.0",
+        "@types/fs-extra": "^11.0.4",
+        "@typescript-eslint/eslint-plugin": "^8.2.0",
+        "@typescript-eslint/parser": "^8.2.0",
+        "@vitejs/plugin-react": "^4.3.1",
+        "vite": "^5.4.6",
+        "electron-builder": "^25.0.5",
+        "concurrently": "^8.2.2",
+        "@eslint/js": "^9.0.0",
+        "@eslint/config-array": "^0.18.0",
+        "eslint-config-prettier": "^9.1.0",
+        "eslint-plugin-react": "^7.35.0",
+        "eslint-plugin-react-hooks": "^4.6.2",
+        "prettier": "^3.3.3",
+        "typescript": "^5.6.0",
+        "rimraf": "^6.0.0",
+        "glob": "^11.0.0"
+    },
+    "engines": {
+        "node": ">=22.16.0"
+    },
+    "author": "EKD Digital",
+    "license": "MIT",
+    "keywords": [
+        "system-optimization",
+        "cross-platform",
+        "electron",
+        "react",
+        "typescript",
+        "desktop-app",
+        "ekd-digital"
+    ]
+}

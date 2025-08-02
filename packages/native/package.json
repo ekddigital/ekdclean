@@ -1,0 +1,21 @@
+{
+    "name": "@ekd-clean/native",
+    "version": "1.0.0",
+    "description": "Platform-specific native optimizations for EKD Clean",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "build": "tsc",
+        "dev": "tsc --watch"
+    },
+    "dependencies": {
+        "fast-glob": "^3.3.2",
+        "fs-extra": "^11.2.0",
+        "better-sqlite3": "^11.3.0"
+    },
+    "devDependencies": {
+        "@types/node": "^22.5.0",
+        "@types/fs-extra": "^11.0.4",
+        "typescript": "^5.6.0"
+    }
+}

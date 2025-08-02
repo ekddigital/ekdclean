@@ -1,0 +1,22 @@
+{
+    "name": "@ekd-clean/animations",
+    "version": "1.0.0",
+    "description": "Advanced 120fps animations for EKD Clean",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "build": "tsc",
+        "dev": "tsc --watch"
+    },
+    "dependencies": {
+        "framer-motion": "^11.5.4",
+        "react": "^18.3.1"
+    },
+    "devDependencies": {
+        "@types/react": "^18.3.5",
+        "typescript": "^5.6.0"
+    },
+    "peerDependencies": {
+        "react": ">=18.0.0"
+    }
+}

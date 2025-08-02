@@ -1,0 +1,31 @@
+{
+    "name": "@ekd-clean/renderer",
+    "version": "1.0.0",
+    "description": "EKD Clean - React Renderer Process",
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "tsc && vite build",
+        "preview": "vite preview",
+        "type-check": "tsc --noEmit"
+    },
+    "dependencies": {
+        "@mantine/core": "^7.0.0",
+        "@mantine/notifications": "^7.0.0",
+        "framer-motion": "^11.0.0",
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0"
+    },
+    "devDependencies": {
+        "@tailwindcss/postcss": "^4.1.11",
+        "@tailwindcss/typography": "^0.5.16",
+        "@types/react": "^18.2.0",
+        "@types/react-dom": "^18.2.0",
+        "@vitejs/plugin-react": "^4.0.0",
+        "autoprefixer": "^10.4.21",
+        "postcss": "^8.5.6",
+        "tailwindcss": "^4.1.11",
+        "typescript": "^5.0.0",
+        "vite": "^5.0.0"
+    }
+}
