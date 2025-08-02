@@ -13,7 +13,7 @@ import {
   homedir,
   tmpdir,
 } from "os";
-import { promises as fs, constants } from "fs";
+import { promises as fs, constants, existsSync } from "fs";
 import { SystemInfo, ScanResult, ActivityItem } from "./types";
 
 // Real system scanning utility functions
@@ -449,6 +449,84 @@ class SystemScanner {
     return { size: totalSize, files: fileCount };
   }
 
+  // Safe file and directory deletion utility
+  static async safeDelete(
+    targetPath: string,
+    options: { maxAge?: number } = {}
+  ): Promise<{ filesDeleted: number; sizeFreed: number }> {
+    let filesDeleted = 0;
+    let sizeFreed = 0;
+
+    try {
+      // Check if path exists
+      if (!existsSync(targetPath)) {
+        return { filesDeleted, sizeFreed };
+      }
+
+      const stat = await fs.stat(targetPath);
+
+      if (stat.isDirectory()) {
+        // For directories, clean contents but keep the directory structure
+        const entries = await fs.readdir(targetPath, { withFileTypes: true });
+
+        for (const entry of entries) {
+          const fullPath = join(targetPath, entry.name);
+
+          try {
+            const entryStat = await fs.stat(fullPath);
+            const ageInDays =
+              (Date.now() - entryStat.mtime.getTime()) / (1000 * 60 * 60 * 24);
+
+            // Skip if file is too new (respecting maxAge option)
+            if (options.maxAge && ageInDays < options.maxAge) {
+              continue;
+            }
+
+            if (entry.isDirectory()) {
+              // Recursively delete directory contents
+              const result = await this.safeDelete(fullPath, options);
+              filesDeleted += result.filesDeleted;
+              sizeFreed += result.sizeFreed;
+
+              // Try to remove empty directory
+              try {
+                const remaining = await fs.readdir(fullPath);
+                if (remaining.length === 0) {
+                  await fs.rmdir(fullPath);
+                  filesDeleted += 1;
+                }
+              } catch {
+                // Directory not empty or other error, skip
+              }
+            } else {
+              // Delete file
+              sizeFreed += entryStat.size;
+              await fs.unlink(fullPath);
+              filesDeleted += 1;
+            }
+          } catch (error) {
+            // Skip files we can't delete (permissions, in use, etc.)
+            console.warn(`Could not delete ${fullPath}:`, error);
+          }
+        }
+      } else {
+        // Single file deletion
+        const ageInDays =
+          (Date.now() - stat.mtime.getTime()) / (1000 * 60 * 60 * 24);
+
+        if (!options.maxAge || ageInDays >= options.maxAge) {
+          sizeFreed += stat.size;
+          await fs.unlink(targetPath);
+          filesDeleted += 1;
+        }
+      }
+    } catch (error) {
+      console.warn(`Could not process ${targetPath}:`, error);
+    }
+
+    return { filesDeleted, sizeFreed };
+  }
+
   static addActivity(activity: ActivityItem): void {
     this.activityHistory.unshift(activity);
     // Keep only last 20 activities
@@ -739,9 +817,44 @@ class EKDCleanApp {
         try {
           if (result.safe && result.type !== "large") {
             // Only clean safe items automatically
-            // TODO: Implement actual file deletion based on scan result paths
-            filesRemoved += result.files;
-            spaceFreed += result.size;
+            console.log(`Cleaning ${result.name} at path: ${result.path}`);
+
+            // Determine appropriate deletion options based on type
+            const deleteOptions: { maxAge?: number } = {};
+
+            switch (result.type) {
+              case "temp":
+                deleteOptions.maxAge = 1; // Only delete temp files older than 1 day
+                break;
+              case "log":
+                deleteOptions.maxAge = 7; // Only delete logs older than 7 days
+                break;
+              case "cache":
+                // Cache files can be deleted regardless of age
+                break;
+              case "trash":
+                // Trash can be emptied regardless of age
+                break;
+              default:
+                // For other types, be conservative
+                deleteOptions.maxAge = 1;
+            }
+
+            // Perform actual deletion
+            const deleteResult = await SystemScanner.safeDelete(
+              result.path,
+              deleteOptions
+            );
+            filesRemoved += deleteResult.filesDeleted;
+            spaceFreed += deleteResult.sizeFreed;
+
+            console.log(
+              `Cleaned ${result.name}: ${deleteResult.filesDeleted} files, ${deleteResult.sizeFreed} bytes freed`
+            );
+          } else {
+            console.log(
+              `Skipping ${result.name} - not safe or is large file type`
+            );
           }
         } catch (error) {
           errors.push(
