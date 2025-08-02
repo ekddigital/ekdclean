@@ -3,15 +3,7 @@
 
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import {
-  Play,
-  Pause,
-  RotateCcw,
-  Trash2,
-  HardDrive,
-  Clock,
-  ChevronRight,
-} from "lucide-react";
+import { Play, Pause, Trash2, HardDrive, Clock } from "lucide-react";
 import { ScanResult, ActivityItem, SystemInfo } from "../types";
 import { SoundManager } from "../utils/SoundManager";
 
@@ -101,7 +93,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ activeItem }) => {
       setIsScanning(true);
       setScanProgress(0);
       setScanResults([]);
-      soundManager.playStartScan();
+      soundManager.playScan();
 
       // Simulate progress animation
       const progressInterval = setInterval(() => {
@@ -121,7 +113,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ activeItem }) => {
       setScanProgress(100);
       setScanResults(results);
       setIsScanning(false);
-      soundManager.playComplete();
+      soundManager.playSuccess();
 
       // Refresh activity after scan
       setTimeout(loadActivityHistory, 500);
@@ -136,12 +128,12 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ activeItem }) => {
     if (scanResults.length === 0) return;
 
     try {
-      soundManager.playStartClean();
+      soundManager.playClick();
       const cleanResult = await window.electronAPI.cleanFiles(scanResults);
 
       console.log("Clean result:", cleanResult);
       setScanResults([]);
-      soundManager.playComplete();
+      soundManager.playSuccess();
 
       // Refresh activity and memory usage
       setTimeout(() => {
@@ -163,63 +155,80 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ activeItem }) => {
   };
 
   return (
-    <div className="h-full p-8 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold text-white mb-2">EKD Clean</h1>
-        <p className="text-slate-400 text-lg">
-          Superior system optimization • Built by EKD Digital
-        </p>
+    <div className="h-full flex flex-col bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 overflow-hidden">
+      {/* Hero Header Section */}
+      <div className="px-8 py-6 border-b border-slate-700/30">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent mb-1">
+              EKD Clean
+            </h1>
+            <p className="text-slate-400 text-sm">
+              Superior system optimization • Built by EKD Digital
+            </p>
+          </div>
+          <div className="flex items-center gap-4">
+            {memoryUsage && (
+              <div className="text-right">
+                <div className="text-sm text-slate-400">Memory Usage</div>
+                <div className="text-lg font-semibold text-white">
+                  {memoryUsage.percentage.toFixed(1)}%
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Main Grid */}
-      <div className="grid grid-cols-12 gap-8 h-[calc(100%-140px)]">
-        {/* Smart Scan - Main Hero */}
+      {/* Main Content Area */}
+      <div className="flex-1 p-8 space-y-6 overflow-y-auto">
+        {/* Smart Scan Card */}
         <motion.div
-          className="col-span-8 bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-8 relative overflow-hidden"
+          className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-xl border border-slate-700/40 rounded-xl p-6 relative overflow-hidden"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
-          {/* Background Gradient */}
-          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-orange-500/5 pointer-events-none" />
+          {/* Gold accent border */}
+          <div className="absolute inset-0 bg-gradient-to-r from-amber-500/10 to-orange-500/10 rounded-xl" />
 
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-2xl font-bold text-white mb-2">
+                <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                  <div className="w-2 h-2 bg-amber-400 rounded-full"></div>
                   Smart Scan
                 </h2>
-                <p className="text-slate-400">
+                <p className="text-slate-400 text-sm">
                   {isScanning
-                    ? "Analyzing your system..."
-                    : "Scan for junk files and optimization opportunities"}
+                    ? "Analyzing your system for optimization opportunities..."
+                    : "Scan for junk files, cache, and system optimization opportunities"}
                 </p>
               </div>
               <div className="flex gap-3">
                 <motion.button
                   onClick={handleStartScan}
                   disabled={isScanning}
-                  className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-6 py-3 rounded-xl font-semibold flex items-center gap-2 hover:from-amber-600 hover:to-orange-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                  className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-6 py-2.5 rounded-lg font-medium flex items-center gap-2 hover:from-amber-600 hover:to-orange-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                 >
                   {isScanning ? (
-                    <Pause className="h-5 w-5" />
+                    <Pause className="h-4 w-4" />
                   ) : (
-                    <Play className="h-5 w-5" />
+                    <Play className="h-4 w-4" />
                   )}
                   {isScanning ? "Scanning..." : "Start Scan"}
                 </motion.button>
                 {scanResults.length > 0 && (
                   <motion.button
                     onClick={handleCleanFiles}
-                    className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-3 rounded-xl font-semibold flex items-center gap-2 hover:from-green-600 hover:to-emerald-600 transition-all"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                    className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-2.5 rounded-lg font-medium flex items-center gap-2 hover:from-green-600 hover:to-emerald-600 transition-all text-sm"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                   >
-                    <Trash2 className="h-5 w-5" />
-                    Clean
+                    <Trash2 className="h-4 w-4" />
+                    Clean Now
                   </motion.button>
                 )}
               </div>
@@ -232,7 +241,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ activeItem }) => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
               >
-                <div className="bg-slate-700/50 rounded-full h-3 overflow-hidden">
+                <div className="bg-slate-700/50 rounded-full h-2 overflow-hidden">
                   <motion.div
                     className="bg-gradient-to-r from-amber-500 to-orange-500 h-full rounded-full"
                     initial={{ width: 0 }}
@@ -240,7 +249,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ activeItem }) => {
                     transition={{ duration: 0.5 }}
                   />
                 </div>
-                <p className="text-slate-400 text-sm mt-2">
+                <p className="text-slate-400 text-xs mt-2">
                   {Math.round(scanProgress)}% complete
                 </p>
               </motion.div>
@@ -251,190 +260,179 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ activeItem }) => {
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50"
+                className="bg-slate-800/30 rounded-lg p-4 border border-slate-700/30"
               >
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-white">
+                  <h3 className="text-sm font-semibold text-white">
                     Scan Results
                   </h3>
-                  <div className="text-amber-400 font-semibold">
-                    {getTotalFiles()} items • {formatBytes(getTotalSize())} can
-                    be recovered
+                  <div className="text-amber-400 font-semibold text-sm">
+                    {getTotalFiles()} items • {formatBytes(getTotalSize())}{" "}
+                    recoverable
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  {scanResults.map((result, index) => (
+                <div className="space-y-2">
+                  {scanResults.slice(0, 4).map((result, index) => (
                     <motion.div
                       key={result.id}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.1 }}
-                      className="flex items-center justify-between bg-slate-700/30 rounded-lg p-4 border border-slate-600/30"
+                      className="flex items-center justify-between bg-slate-700/20 rounded-md p-3 border border-slate-600/20"
                     >
                       <div className="flex items-center gap-3">
                         <div
-                          className={`w-3 h-3 rounded-full ${result.safe ? "bg-green-400" : "bg-yellow-400"}`}
+                          className={`w-2 h-2 rounded-full ${result.safe ? "bg-green-400" : "bg-yellow-400"}`}
                         />
                         <div>
-                          <div className="text-white font-medium">
+                          <div className="text-white font-medium text-sm">
                             {result.name}
                           </div>
-                          <div className="text-slate-400 text-sm">
+                          <div className="text-slate-400 text-xs">
                             {result.description}
                           </div>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-white font-medium">
+                        <div className="text-white font-medium text-sm">
                           {formatBytes(result.size)}
                         </div>
-                        <div className="text-slate-400 text-sm">
+                        <div className="text-slate-400 text-xs">
                           {result.files} files
                         </div>
                       </div>
                     </motion.div>
                   ))}
+                  {scanResults.length > 4 && (
+                    <div className="text-center py-2">
+                      <span className="text-slate-400 text-xs">
+                        +{scanResults.length - 4} more categories
+                      </span>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}
           </div>
         </motion.div>
 
-        {/* Memory Usage */}
-        <motion.div
-          className="col-span-4 bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.1 }}
-        >
-          <div className="flex items-center gap-3 mb-4">
-            <HardDrive className="h-6 w-6 text-amber-400" />
-            <h3 className="text-lg font-semibold text-white">Memory Usage</h3>
-          </div>
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Memory Usage */}
+          <motion.div
+            className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-xl border border-slate-700/40 rounded-xl p-5"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <HardDrive className="h-4 w-4 text-amber-400" />
+              <h3 className="text-sm font-semibold text-white">Memory</h3>
+            </div>
 
-          {memoryUsage ? (
-            <div className="space-y-4">
-              <div className="relative">
-                <div className="bg-slate-700/50 rounded-full h-4 overflow-hidden">
-                  <motion.div
-                    className="bg-gradient-to-r from-amber-500 to-orange-500 h-full rounded-full"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${memoryUsage.percentage}%` }}
-                    transition={{ duration: 1 }}
-                  />
+            {memoryUsage ? (
+              <div className="space-y-3">
+                <div className="relative">
+                  <div className="bg-slate-700/50 rounded-full h-2 overflow-hidden">
+                    <motion.div
+                      className="bg-gradient-to-r from-amber-500 to-orange-500 h-full rounded-full"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${memoryUsage.percentage}%` }}
+                      transition={{ duration: 1 }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs text-slate-400 mt-1">
+                    <span>{formatBytes(memoryUsage.used)}</span>
+                    <span>{memoryUsage.percentage.toFixed(1)}%</span>
+                  </div>
                 </div>
-                <div className="flex justify-between text-sm text-slate-400 mt-2">
-                  <span>{formatBytes(memoryUsage.used)} used</span>
-                  <span>{memoryUsage.percentage.toFixed(1)}%</span>
-                </div>
-              </div>
 
-              <div className="bg-slate-700/30 rounded-lg p-4 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">Total Memory</span>
-                  <span className="text-white">
-                    {formatBytes(memoryUsage.total)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">Available</span>
-                  <span className="text-white">
+                <div className="text-xs text-slate-400">
+                  <div>Total: {formatBytes(memoryUsage.total)}</div>
+                  <div>
+                    Available:{" "}
                     {formatBytes(memoryUsage.total - memoryUsage.used)}
-                  </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ) : (
-            <div className="animate-pulse space-y-4">
-              <div className="bg-slate-700/50 rounded-full h-4" />
-              <div className="bg-slate-700/30 rounded-lg p-4 space-y-2">
-                <div className="bg-slate-600/50 rounded h-4" />
-                <div className="bg-slate-600/50 rounded h-4" />
-              </div>
-            </div>
-          )}
-        </motion.div>
-
-        {/* System Info */}
-        <motion.div
-          className="col-span-6 bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-        >
-          <h3 className="text-lg font-semibold text-white mb-4">
-            System Information
-          </h3>
-
-          {systemInfo ? (
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-slate-400">Platform</span>
-                <span className="text-white">
-                  {systemInfo.platform} {systemInfo.arch}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">OS Version</span>
-                <span className="text-white">{systemInfo.osVersion}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">CPU Cores</span>
-                <span className="text-white">{systemInfo.cpuCount}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Node.js</span>
-                <span className="text-white">{systemInfo.nodeVersion}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Electron</span>
-                <span className="text-white">{systemInfo.electronVersion}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">App Version</span>
-                <span className="text-white">v{systemInfo.appVersion}</span>
-              </div>
-            </div>
-          ) : (
-            <div className="animate-pulse space-y-3">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="flex justify-between">
-                  <div className="bg-slate-600/50 rounded h-4 w-24" />
-                  <div className="bg-slate-600/50 rounded h-4 w-32" />
+            ) : (
+              <div className="animate-pulse space-y-2">
+                <div className="bg-slate-700/50 rounded-full h-2" />
+                <div className="space-y-1">
+                  <div className="bg-slate-600/50 rounded h-3 w-3/4" />
+                  <div className="bg-slate-600/50 rounded h-3 w-1/2" />
                 </div>
-              ))}
-            </div>
-          )}
-        </motion.div>
+              </div>
+            )}
+          </motion.div>
 
-        {/* Recent Activity */}
-        <motion.div
-          className="col-span-6 bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-        >
-          <div className="flex items-center gap-3 mb-4">
-            <Clock className="h-5 w-5 text-amber-400" />
-            <h3 className="text-lg font-semibold text-white">
-              Recent Activity
+          {/* System Info */}
+          <motion.div
+            className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-xl border border-slate-700/40 rounded-xl p-5"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+          >
+            <h3 className="text-sm font-semibold text-white mb-3">
+              System Info
             </h3>
-          </div>
 
-          <div className="space-y-3 max-h-64 overflow-y-auto">
-            {activityHistory.length > 0 ? (
-              activityHistory.map((item, index) => (
-                <motion.div
-                  key={item.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="flex items-center justify-between bg-slate-700/30 rounded-lg p-3 border border-slate-600/20"
-                >
-                  <div className="flex items-center gap-3">
+            {systemInfo ? (
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Platform</span>
+                  <span className="text-white">{systemInfo.platform}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Arch</span>
+                  <span className="text-white">{systemInfo.arch}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Cores</span>
+                  <span className="text-white">{systemInfo.cpuCount}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">OS</span>
+                  <span className="text-white">{systemInfo.osVersion}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="animate-pulse space-y-2">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="flex justify-between">
+                    <div className="bg-slate-600/50 rounded h-3 w-16" />
+                    <div className="bg-slate-600/50 rounded h-3 w-20" />
+                  </div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+
+          {/* Recent Activity */}
+          <motion.div
+            className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-xl border border-slate-700/40 rounded-xl p-5"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <Clock className="h-4 w-4 text-amber-400" />
+              <h3 className="text-sm font-semibold text-white">Activity</h3>
+            </div>
+
+            <div className="space-y-2 max-h-32 overflow-y-auto">
+              {activityHistory.length > 0 ? (
+                activityHistory.slice(0, 3).map((item, index) => (
+                  <motion.div
+                    key={item.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    className="flex items-center gap-2 text-xs"
+                  >
                     <div
-                      className={`w-2 h-2 rounded-full ${
+                      className={`w-1.5 h-1.5 rounded-full ${
                         item.status === "completed"
                           ? "bg-green-400"
                           : item.status === "running"
@@ -442,31 +440,28 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ activeItem }) => {
                             : "bg-red-400"
                       }`}
                     />
-                    <div>
-                      <div className="text-white font-medium text-sm">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-white font-medium truncate">
                         {item.title}
                       </div>
-                      <div className="text-slate-400 text-xs">
+                      <div className="text-slate-400 truncate">
                         {item.subtitle}
                       </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-slate-400 text-xs">
+                    <div className="text-slate-500 text-xs">
                       {formatTimeAgo(new Date(item.timestamp))}
                     </div>
-                    <ChevronRight className="h-4 w-4 text-slate-600 ml-auto" />
-                  </div>
-                </motion.div>
-              ))
-            ) : (
-              <div className="text-center text-slate-400 py-8">
-                <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>No recent activity</p>
-              </div>
-            )}
-          </div>
-        </motion.div>
+                  </motion.div>
+                ))
+              ) : (
+                <div className="text-center text-slate-400 py-4">
+                  <Clock className="h-6 w-6 mx-auto mb-1 opacity-30" />
+                  <p className="text-xs">No recent activity</p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </div>
       </div>
     </div>
   );
