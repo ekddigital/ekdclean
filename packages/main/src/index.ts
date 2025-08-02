@@ -116,6 +116,7 @@ class SystemScanner {
         join(tmpdir(), "cache"),
       ];
 
+      const existingPaths: string[] = [];
       let totalSize = 0;
       let fileCount = 0;
 
@@ -123,21 +124,24 @@ class SystemScanner {
         try {
           await fs.access(cachePath, constants.F_OK);
           const stats = await this.getDirectoryStats(cachePath);
-          totalSize += stats.size;
-          fileCount += stats.files;
+          if (stats.size > 0) {
+            existingPaths.push(cachePath);
+            totalSize += stats.size;
+            fileCount += stats.files;
+          }
         } catch {
           // Directory doesn't exist or no access, skip safely
         }
       }
 
-      if (totalSize > 0) {
+      if (existingPaths.length > 0) {
         return {
           id: `app_cache_${Date.now()}`,
           name: "Application Caches",
           type: "cache",
           size: totalSize,
           files: fileCount,
-          path: "Application cache directories",
+          path: existingPaths.join(";"), // Store actual paths separated by semicolon
           description: "Safe application cache files that can be regenerated",
           safe: true,
           scanTime: new Date(),
@@ -162,6 +166,7 @@ class SystemScanner {
         ),
       ];
 
+      const existingPaths: string[] = [];
       let totalSize = 0;
       let fileCount = 0;
 
@@ -169,21 +174,24 @@ class SystemScanner {
         try {
           await fs.access(cachePath, constants.F_OK);
           const stats = await this.getDirectoryStats(cachePath);
-          totalSize += stats.size;
-          fileCount += stats.files;
+          if (stats.size > 0) {
+            existingPaths.push(cachePath);
+            totalSize += stats.size;
+            fileCount += stats.files;
+          }
         } catch {
           // Skip inaccessible browser caches
         }
       }
 
-      if (totalSize > 0) {
+      if (existingPaths.length > 0) {
         return {
           id: `browser_cache_${Date.now()}`,
           name: "Browser Cache Files",
           type: "cache",
           size: totalSize,
           files: fileCount,
-          path: "Browser cache locations",
+          path: existingPaths.join(";"), // Store actual paths
           description: "Browser cache files that can be safely cleared",
           safe: true,
           scanTime: new Date(),
@@ -198,34 +206,36 @@ class SystemScanner {
   private static async scanSystemTempFiles(): Promise<ScanResult | null> {
     try {
       const tempPath = tmpdir();
-      const systemTempPaths = [tempPath, "/private/tmp", "/var/tmp"];
+      const systemTempPaths = [tempPath, "/private/tmp"];
 
+      const tempFiles: string[] = [];
       let totalSize = 0;
       let fileCount = 0;
 
       for (const tempDir of systemTempPaths) {
         try {
           await fs.access(tempDir, constants.F_OK);
-          // Only scan files older than 24 hours for extra safety
-          const stats = await this.getDirectoryStatsWithAge(
+          // Get files older than 24 hours
+          const oldFiles = await this.getOldFilesInDirectory(
             tempDir,
             24 * 60 * 60 * 1000
           );
-          totalSize += stats.size;
-          fileCount += stats.files;
+          tempFiles.push(...oldFiles.map((f) => f.path));
+          totalSize += oldFiles.reduce((sum, f) => sum + f.size, 0);
+          fileCount += oldFiles.length;
         } catch {
           // Skip inaccessible temp directories
         }
       }
 
-      if (totalSize > 0) {
+      if (tempFiles.length > 0) {
         return {
           id: `system_temp_${Date.now()}`,
           name: "System Temporary Files",
           type: "temp",
           size: totalSize,
           files: fileCount,
-          path: "System temporary directories",
+          path: tempFiles.join(";"), // Store actual file paths
           description: "Temporary files older than 24 hours (safe to remove)",
           safe: true,
           scanTime: new Date(),
@@ -245,6 +255,7 @@ class SystemScanner {
         // Only scan user logs, not system logs for safety
       ];
 
+      const existingPaths: string[] = [];
       let totalSize = 0;
       let fileCount = 0;
 
@@ -257,21 +268,24 @@ class SystemScanner {
             7 * 24 * 60 * 60 * 1000,
             /\.log$/
           );
-          totalSize += stats.size;
-          fileCount += stats.files;
+          if (stats.size > 0) {
+            existingPaths.push(logPath);
+            totalSize += stats.size;
+            fileCount += stats.files;
+          }
         } catch {
           // Skip inaccessible log directories
         }
       }
 
-      if (totalSize > 0) {
+      if (existingPaths.length > 0) {
         return {
           id: `old_logs_${Date.now()}`,
           name: "Old Log Files",
           type: "log",
           size: totalSize,
           files: fileCount,
-          path: "User log directories",
+          path: existingPaths.join(";"), // Store actual paths
           description: "Log files older than 7 days (safe to remove)",
           safe: true,
           scanTime: new Date(),
@@ -320,6 +334,7 @@ class SystemScanner {
         join(userHome, "Library/Caches/com.apple.dt.Xcode"),
       ];
 
+      const existingPaths: string[] = [];
       let totalSize = 0;
       let fileCount = 0;
 
@@ -327,21 +342,24 @@ class SystemScanner {
         try {
           await fs.access(devPath, constants.F_OK);
           const stats = await this.getDirectoryStats(devPath);
-          totalSize += stats.size;
-          fileCount += stats.files;
+          if (stats.size > 0) {
+            existingPaths.push(devPath);
+            totalSize += stats.size;
+            fileCount += stats.files;
+          }
         } catch {
           // Skip if development tools not installed
         }
       }
 
-      if (totalSize > 0) {
+      if (existingPaths.length > 0) {
         return {
           id: `dev_artifacts_${Date.now()}`,
           name: "Development Caches",
           type: "cache",
           size: totalSize,
           files: fileCount,
-          path: "Development tool caches",
+          path: existingPaths.join(";"), // Store actual paths
           description: "Development tool caches (npm, yarn, pip, Xcode)",
           safe: true,
           scanTime: new Date(),
@@ -447,6 +465,44 @@ class SystemScanner {
     }
 
     return { size: totalSize, files: fileCount };
+  }
+
+  static async getOldFilesInDirectory(
+    dirPath: string,
+    maxAge: number
+  ): Promise<Array<{ path: string; size: number }>> {
+    const oldFiles: Array<{ path: string; size: number }> = [];
+
+    try {
+      const entries = await fs.readdir(dirPath, { withFileTypes: true });
+      const cutoffTime = Date.now() - maxAge;
+
+      for (const entry of entries) {
+        const fullPath = join(dirPath, entry.name);
+        try {
+          const stat = await fs.stat(fullPath);
+
+          if (stat.mtime.getTime() < cutoffTime) {
+            if (entry.isFile()) {
+              oldFiles.push({ path: fullPath, size: stat.size });
+            } else if (entry.isDirectory()) {
+              // Recursively check subdirectories (limit depth for safety)
+              const subFiles = await this.getOldFilesInDirectory(
+                fullPath,
+                maxAge
+              );
+              oldFiles.push(...subFiles);
+            }
+          }
+        } catch {
+          // Skip files we can't access
+        }
+      }
+    } catch {
+      // Skip directories we can't read
+    }
+
+    return oldFiles;
   }
 
   // Safe file and directory deletion utility
@@ -841,16 +897,30 @@ class EKDCleanApp {
             }
 
             // Perform actual deletion
-            const deleteResult = await SystemScanner.safeDelete(
-              result.path,
-              deleteOptions
-            );
-            filesRemoved += deleteResult.filesDeleted;
-            spaceFreed += deleteResult.sizeFreed;
+            // Parse multiple paths separated by semicolons
+            const pathsToDelete = result.path
+              .split(";")
+              .filter((p) => p.trim().length > 0);
 
-            console.log(
-              `Cleaned ${result.name}: ${deleteResult.filesDeleted} files, ${deleteResult.sizeFreed} bytes freed`
-            );
+            for (const pathToDelete of pathsToDelete) {
+              try {
+                const deleteResult = await SystemScanner.safeDelete(
+                  pathToDelete.trim(),
+                  deleteOptions
+                );
+                filesRemoved += deleteResult.filesDeleted;
+                spaceFreed += deleteResult.sizeFreed;
+
+                console.log(
+                  `Cleaned ${result.name} at ${pathToDelete}: ${deleteResult.filesDeleted} files, ${deleteResult.sizeFreed} bytes freed`
+                );
+              } catch (error) {
+                console.error(`Failed to clean path ${pathToDelete}:`, error);
+                errors.push(
+                  `Failed to clean ${pathToDelete}: ${error instanceof Error ? error.message : "Unknown error"}`
+                );
+              }
+            }
           } else {
             console.log(
               `Skipping ${result.name} - not safe or is large file type`
