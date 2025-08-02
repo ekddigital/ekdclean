@@ -12,7 +12,7 @@ const App: React.FC = () => {
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isScanning, setIsScanning] = useState(false);
-//   
+  //
 
   useEffect(() => {
     // Initialize app and load system information
@@ -38,6 +38,10 @@ const App: React.FC = () => {
             nodeVersion: "22.16.0",
             electronVersion: "32.0.1",
             appVersion: "1.0.0",
+            uptime: 86400,
+            loadAverage: [1.2, 1.5, 1.3],
+            homeDirectory: "/Users/user",
+            tempDirectory: "/tmp",
           });
         }
 
@@ -60,7 +64,10 @@ const App: React.FC = () => {
     <AppShell
       padding={0}
       style={{
-        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+        background:
+          "linear-gradient(135deg, #1a1a1a 0%, #2d1b1b 25%, #3d2914 50%, #1f1f1f 75%, #0f0f0f 100%)",
+        backgroundSize: "400% 400%",
+        animation: "gradientShift 15s ease infinite",
         minHeight: "100vh",
       }}
     >
