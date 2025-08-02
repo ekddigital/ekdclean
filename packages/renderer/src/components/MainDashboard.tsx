@@ -244,12 +244,12 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({ activeItem }) => {
                   </div>
                   <div>
                     <h2 className="text-2xl font-bold text-gray-900 mb-1">
-                      Smart Scan
+                      Smart & Safe Scan
                     </h2>
                     <p className="text-gray-600 text-sm">
                       {isScanning
-                        ? "Analyzing your system for optimization opportunities..."
-                        : "Advanced system analysis to identify junk files, cache, and performance bottlenecks"}
+                        ? "Intelligently analyzing your system for safe optimization opportunities..."
+                        : "Advanced smart analysis to identify only safe cleanup targets - never touches Downloads, Documents, or personal files"}
                     </p>
                   </div>
                 </div>

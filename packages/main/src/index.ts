@@ -45,37 +45,46 @@ class SystemScanner {
       id: `activity_${Date.now()}`,
       type: "scan",
       title: "Smart Scan Started",
-      subtitle: "Analyzing system for junk files",
+      subtitle: "Intelligently analyzing system for safe cleanup opportunities",
       timestamp: scanStart,
       status: "running",
     });
+
     try {
       const results: ScanResult[] = [];
 
-      // Scan user cache directories
-      const cacheResult = await this.scanCacheDirectories();
-      if (cacheResult) results.push(cacheResult);
+      // Smart system cache scanning (truly safe)
+      const appCacheResult = await this.scanApplicationCaches();
+      if (appCacheResult) results.push(appCacheResult);
 
-      // Scan temp directories
-      const tempResult = await this.scanTempDirectories();
+      // Browser cache and data (safe to clean)
+      const browserCacheResult = await this.scanBrowserCaches();
+      if (browserCacheResult) results.push(browserCacheResult);
+
+      // System temporary files (safe)
+      const tempResult = await this.scanSystemTempFiles();
       if (tempResult) results.push(tempResult);
 
-      // Scan log files
-      const logResult = await this.scanLogFiles();
+      // Old log files (safe, but selective)
+      const logResult = await this.scanOldLogFiles();
       if (logResult) results.push(logResult);
 
-      // Scan Downloads folder for large files
-      const downloadsResult = await this.scanDownloadsFolder();
-      if (downloadsResult) results.push(downloadsResult);
+      // Trash/Bin contents (safe to empty)
+      const trashResult = await this.scanTrashContents();
+      if (trashResult) results.push(trashResult);
+
+      // Development artifacts (if detected)
+      const devResult = await this.scanDevelopmentArtifacts();
+      if (devResult) results.push(devResult);
 
       this.addActivity({
         id: `activity_${Date.now()}`,
         type: "scan",
         title: "Smart Scan Completed",
-        subtitle: `Found ${results.length} categories of junk files`,
+        subtitle: `Intelligently identified ${results.length} safe cleanup categories`,
         timestamp: new Date(),
         status: "completed",
-        details: `Scanned in ${Date.now() - scanStart.getTime()}ms`,
+        details: `Smart analysis completed in ${Date.now() - scanStart.getTime()}ms`,
       });
 
       return results;
@@ -92,148 +101,254 @@ class SystemScanner {
     }
   }
 
-  private static async scanCacheDirectories(): Promise<ScanResult | null> {
+  private static async scanApplicationCaches(): Promise<ScanResult | null> {
     try {
       const userHome = homedir();
-      const cachePaths = [
-        join(userHome, "Library/Caches"),
-        join(userHome, ".cache"),
-        "/tmp",
-        tmpdir(),
+      // Focus on specific application caches that are safe to clean
+      const safeCachePaths = [
+        join(userHome, "Library/Caches/com.apple.Safari"),
+        join(userHome, "Library/Caches/com.google.Chrome"),
+        join(userHome, "Library/Caches/com.microsoft.VSCode"),
+        join(userHome, "Library/Caches/org.nodejs.npm"),
+        join(userHome, "Library/Caches/Homebrew"),
+        join(userHome, "Library/Caches/pip"),
+        // System temp caches
+        join(tmpdir(), "cache"),
       ];
 
       let totalSize = 0;
       let fileCount = 0;
 
-      for (const cachePath of cachePaths) {
+      for (const cachePath of safeCachePaths) {
         try {
           await fs.access(cachePath, constants.F_OK);
           const stats = await this.getDirectoryStats(cachePath);
           totalSize += stats.size;
           fileCount += stats.files;
         } catch {
-          // Directory doesn't exist or no access, skip
+          // Directory doesn't exist or no access, skip safely
         }
       }
 
       if (totalSize > 0) {
         return {
-          id: `cache_${Date.now()}`,
-          name: "System Cache Files",
+          id: `app_cache_${Date.now()}`,
+          name: "Application Caches",
           type: "cache",
           size: totalSize,
           files: fileCount,
-          path: "Various cache locations",
-          description: "Temporary files that can be safely removed",
+          path: "Application cache directories",
+          description: "Safe application cache files that can be regenerated",
           safe: true,
           scanTime: new Date(),
         };
       }
     } catch (error) {
-      console.error("Cache scan error:", error);
+      console.error("Application cache scan error:", error);
     }
     return null;
   }
 
-  private static async scanTempDirectories(): Promise<ScanResult | null> {
+  private static async scanBrowserCaches(): Promise<ScanResult | null> {
+    try {
+      const userHome = homedir();
+      const browserCaches = [
+        join(userHome, "Library/Caches/Google/Chrome/Default/Cache"),
+        join(userHome, "Library/Caches/com.apple.Safari/WebKitCache"),
+        join(userHome, "Library/Safari/LocalStorage"),
+        join(
+          userHome,
+          "Library/Application Support/Google/Chrome/Default/GPUCache"
+        ),
+      ];
+
+      let totalSize = 0;
+      let fileCount = 0;
+
+      for (const cachePath of browserCaches) {
+        try {
+          await fs.access(cachePath, constants.F_OK);
+          const stats = await this.getDirectoryStats(cachePath);
+          totalSize += stats.size;
+          fileCount += stats.files;
+        } catch {
+          // Skip inaccessible browser caches
+        }
+      }
+
+      if (totalSize > 0) {
+        return {
+          id: `browser_cache_${Date.now()}`,
+          name: "Browser Cache Files",
+          type: "cache",
+          size: totalSize,
+          files: fileCount,
+          path: "Browser cache locations",
+          description: "Browser cache files that can be safely cleared",
+          safe: true,
+          scanTime: new Date(),
+        };
+      }
+    } catch (error) {
+      console.error("Browser cache scan error:", error);
+    }
+    return null;
+  }
+
+  private static async scanSystemTempFiles(): Promise<ScanResult | null> {
     try {
       const tempPath = tmpdir();
-      const stats = await this.getDirectoryStats(tempPath);
+      const systemTempPaths = [tempPath, "/private/tmp", "/var/tmp"];
 
-      if (stats.size > 0) {
+      let totalSize = 0;
+      let fileCount = 0;
+
+      for (const tempDir of systemTempPaths) {
+        try {
+          await fs.access(tempDir, constants.F_OK);
+          // Only scan files older than 24 hours for extra safety
+          const stats = await this.getDirectoryStatsWithAge(
+            tempDir,
+            24 * 60 * 60 * 1000
+          );
+          totalSize += stats.size;
+          fileCount += stats.files;
+        } catch {
+          // Skip inaccessible temp directories
+        }
+      }
+
+      if (totalSize > 0) {
         return {
-          id: `temp_${Date.now()}`,
-          name: "Temporary Files",
+          id: `system_temp_${Date.now()}`,
+          name: "System Temporary Files",
           type: "temp",
-          size: stats.size,
-          files: stats.files,
-          path: tempPath,
-          description: "Temporary files safe to delete",
+          size: totalSize,
+          files: fileCount,
+          path: "System temporary directories",
+          description: "Temporary files older than 24 hours (safe to remove)",
           safe: true,
           scanTime: new Date(),
         };
       }
     } catch (error) {
-      console.error("Temp scan error:", error);
+      console.error("System temp scan error:", error);
     }
     return null;
   }
 
-  private static async scanLogFiles(): Promise<ScanResult | null> {
+  private static async scanOldLogFiles(): Promise<ScanResult | null> {
     try {
       const userHome = homedir();
       const logPaths = [
         join(userHome, "Library/Logs"),
-        "/var/log",
-        "/tmp",
-      ].filter(async (path) => {
-        try {
-          await fs.access(path, constants.F_OK);
-          return true;
-        } catch {
-          return false;
-        }
-      });
+        // Only scan user logs, not system logs for safety
+      ];
 
       let totalSize = 0;
       let fileCount = 0;
 
       for (const logPath of logPaths) {
         try {
-          const stats = await this.getDirectoryStats(logPath, /\.log$/);
+          await fs.access(logPath, constants.F_OK);
+          // Only scan log files older than 7 days
+          const stats = await this.getDirectoryStatsWithAge(
+            logPath,
+            7 * 24 * 60 * 60 * 1000,
+            /\.log$/
+          );
           totalSize += stats.size;
           fileCount += stats.files;
         } catch {
-          // Skip inaccessible directories
+          // Skip inaccessible log directories
         }
       }
 
       if (totalSize > 0) {
         return {
-          id: `logs_${Date.now()}`,
-          name: "Log Files",
+          id: `old_logs_${Date.now()}`,
+          name: "Old Log Files",
           type: "log",
           size: totalSize,
           files: fileCount,
-          path: "System log directories",
-          description: "Old log files that can be removed",
+          path: "User log directories",
+          description: "Log files older than 7 days (safe to remove)",
           safe: true,
           scanTime: new Date(),
         };
       }
     } catch (error) {
-      console.error("Log scan error:", error);
+      console.error("Old log scan error:", error);
     }
     return null;
   }
 
-  private static async scanDownloadsFolder(): Promise<ScanResult | null> {
+  private static async scanTrashContents(): Promise<ScanResult | null> {
     try {
       const userHome = homedir();
-      const downloadsPath = join(userHome, "Downloads");
+      const trashPath = join(userHome, ".Trash");
 
-      await fs.access(downloadsPath, constants.F_OK);
-      const stats = await this.getDirectoryStats(
-        downloadsPath,
-        undefined,
-        100 * 1024 * 1024
-      ); // Files > 100MB
+      await fs.access(trashPath, constants.F_OK);
+      const stats = await this.getDirectoryStats(trashPath);
 
       if (stats.size > 0) {
         return {
-          id: `large_${Date.now()}`,
-          name: "Large Downloads",
-          type: "large",
+          id: `trash_${Date.now()}`,
+          name: "Trash Contents",
+          type: "trash",
           size: stats.size,
           files: stats.files,
-          path: downloadsPath,
-          description: "Large files in Downloads folder",
-          safe: false, // User should review these
+          path: trashPath,
+          description: "Files in trash that can be permanently deleted",
+          safe: true,
           scanTime: new Date(),
         };
       }
     } catch (error) {
-      console.error("Downloads scan error:", error);
+      console.error("Trash scan error:", error);
+    }
+    return null;
+  }
+
+  private static async scanDevelopmentArtifacts(): Promise<ScanResult | null> {
+    try {
+      const userHome = homedir();
+      const devPaths = [
+        join(userHome, ".npm/_cacache"),
+        join(userHome, ".yarn/cache"),
+        join(userHome, ".cache/pip"),
+        join(userHome, "Library/Caches/com.apple.dt.Xcode"),
+      ];
+
+      let totalSize = 0;
+      let fileCount = 0;
+
+      for (const devPath of devPaths) {
+        try {
+          await fs.access(devPath, constants.F_OK);
+          const stats = await this.getDirectoryStats(devPath);
+          totalSize += stats.size;
+          fileCount += stats.files;
+        } catch {
+          // Skip if development tools not installed
+        }
+      }
+
+      if (totalSize > 0) {
+        return {
+          id: `dev_artifacts_${Date.now()}`,
+          name: "Development Caches",
+          type: "cache",
+          size: totalSize,
+          files: fileCount,
+          path: "Development tool caches",
+          description: "Development tool caches (npm, yarn, pip, Xcode)",
+          safe: true,
+          scanTime: new Date(),
+        };
+      }
+    } catch (error) {
+      console.error("Development artifacts scan error:", error);
     }
     return null;
   }
@@ -267,6 +382,56 @@ class SystemScanner {
             // Recursively scan subdirectories (with depth limit for safety)
             const subStats = await this.getDirectoryStats(
               itemPath,
+              nameFilter,
+              sizeFilter
+            );
+            totalSize += subStats.size;
+            fileCount += subStats.files;
+          }
+        } catch {
+          // Skip files we can't access
+        }
+      }
+    } catch (error) {
+      // Directory not accessible
+    }
+
+    return { size: totalSize, files: fileCount };
+  }
+
+  private static async getDirectoryStatsWithAge(
+    dirPath: string,
+    maxAgeMs: number,
+    nameFilter?: RegExp,
+    sizeFilter?: number
+  ): Promise<{ size: number; files: number }> {
+    let totalSize = 0;
+    let fileCount = 0;
+    const now = Date.now();
+
+    try {
+      const items = await fs.readdir(dirPath);
+
+      for (const item of items) {
+        try {
+          const itemPath = join(dirPath, item);
+          const stat = await fs.stat(itemPath);
+          const ageMs = now - stat.mtime.getTime();
+
+          if (stat.isFile() && ageMs >= maxAgeMs) {
+            const includeFile =
+              (!nameFilter || nameFilter.test(item)) &&
+              (!sizeFilter || stat.size >= sizeFilter);
+
+            if (includeFile) {
+              totalSize += stat.size;
+              fileCount++;
+            }
+          } else if (stat.isDirectory()) {
+            // Recursively scan subdirectories with age filter
+            const subStats = await this.getDirectoryStatsWithAge(
+              itemPath,
+              maxAgeMs,
               nameFilter,
               sizeFilter
             );

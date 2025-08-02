@@ -32,7 +32,7 @@ export interface JunkFile {
 export interface ScanResult {
   id: string;
   name: string;
-  type: "cache" | "temp" | "log" | "duplicate" | "large";
+  type: "cache" | "temp" | "log" | "duplicate" | "large" | "trash";
   size: number;
   files: number;
   path: string;
