@@ -93,52 +93,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <motion.div
-      className="h-full w-80 flex flex-col"
-      style={{
-        ...glassStyles,
-        borderRadius: "0 24px 24px 0",
-      }}
-      initial={{ x: -320, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      transition={{
-        type: "spring",
-        damping: 25,
-        stiffness: 300,
-        duration: 0.6,
-      }}
-    >
+    <div className="h-full bg-white/90 backdrop-blur-xl border-r border-gray-200/50 w-72 flex flex-col">
       {/* Header */}
-      <div className="p-8 border-b border-gold-500/20">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.4 }}
-        >
-          <Group align="center" gap="lg">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-gold-500 via-gold-600 to-amber-700 flex items-center justify-center shadow-2xl shadow-gold-500/30">
-              <motion.div
-                animate={{ rotate: [0, 360] }}
-                transition={{
-                  duration: 20,
-                  repeat: Infinity,
-                  ease: "linear",
-                }}
-                className="text-white text-2xl"
-              >
-                ⚡
-              </motion.div>
-            </div>
-            <div>
-              <Text size="xl" fw={700} c="white" className="text-shadow">
-                EKD Clean
-              </Text>
-              <Text size="sm" c="rgba(245, 158, 11, 0.9)" fw={600}>
-                System Optimizer
-              </Text>
-            </div>
-          </Group>
-        </motion.div>
+      <div className="p-6 border-b border-gray-200/30">
+        <div className="flex items-center gap-3 mb-1">
+          <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center shadow-lg">
+            <span className="text-white text-sm font-bold">E</span>
+          </div>
+          <Text
+            size="lg"
+            fw={700}
+            className="bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent"
+          >
+            EKD Clean
+          </Text>
+        </div>
+        <Text size="xs" c="dimmed" fw={500}>
+          Professional System Optimizer
+        </Text>
       </div>
 
       {/* Navigation Items */}
@@ -166,8 +138,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <motion.div
                   className={`relative p-5 rounded-2xl cursor-pointer transition-all duration-200 ${
                     activeItem === item.id
-                      ? "bg-gradient-to-r from-gold-500/20 via-amber-600/20 to-yellow-500/20 border border-gold-400/40 shadow-xl shadow-gold-500/15"
-                      : "hover:bg-gold-500/10 hover:border-gold-400/20 border border-transparent"
+                      ? "bg-gradient-to-r from-amber-100/80 via-orange-100/80 to-yellow-100/80 border border-amber-300/50 shadow-xl shadow-amber-200/30"
+                      : "hover:bg-amber-50/50 hover:border-amber-200/30 border border-transparent"
                   }`}
                   onClick={() => onItemSelect(item.id)}
                   whileHover={{
@@ -203,11 +175,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <Text
                           size="md"
                           fw={activeItem === item.id ? 700 : 600}
-                          c={
-                            activeItem === item.id
-                              ? "white"
-                              : "rgba(255, 255, 255, 0.9)"
-                          }
+                          c={activeItem === item.id ? "dark.9" : "dark.6"}
                           className={
                             activeItem === item.id ? "text-shadow" : ""
                           }
@@ -231,12 +199,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <Badge
                           size="sm"
                           variant="filled"
-                          color="red"
+                          color="orange"
                           style={{
                             background:
-                              "linear-gradient(45deg, #ef4444, #f87171)",
+                              "linear-gradient(45deg, #f97316, #fb923c)",
                             border: "none",
-                            boxShadow: "0 2px 8px rgba(239, 68, 68, 0.3)",
+                            boxShadow: "0 2px 8px rgba(249, 115, 22, 0.3)",
                           }}
                         >
                           {item.badge}
@@ -248,7 +216,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   {/* Active indicator */}
                   {activeItem === item.id && (
                     <motion.div
-                      className="absolute left-0 top-1/2 w-1.5 h-10 bg-gradient-to-b from-gold-400 via-gold-500 to-amber-600 rounded-r-full shadow-xl shadow-gold-400/60"
+                      className="absolute left-0 top-1/2 w-1.5 h-10 bg-gradient-to-b from-amber-400 via-orange-500 to-amber-600 rounded-r-full shadow-xl shadow-amber-400/60"
                       style={{ transform: "translateY(-50%)" }}
                       layoutId="activeIndicator"
                       initial={{ opacity: 0, scale: 0 }}
@@ -268,28 +236,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Footer */}
-      <div className="p-6 border-t border-gold-500/20">
-        <Divider color="rgba(245, 158, 11, 0.2)" mb="lg" />
+      <div className="p-6 border-t border-gray-200/50">
+        <Divider color="rgba(156, 163, 175, 0.3)" mb="lg" />
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.8, duration: 0.4 }}
         >
           <Group justify="space-between" align="center">
-            <Text size="xs" c="rgba(245, 158, 11, 0.8)" fw={600}>
+            <Text size="xs" c="dark.4" fw={600}>
               v1.0.0 • EKD Digital
             </Text>
             <ActionIcon
               variant="subtle"
               size="md"
-              className="hover:bg-gold-500/20 transition-colors"
-              style={{ color: "rgba(245, 158, 11, 0.8)" }}
+              className="hover:bg-amber-100/50 transition-colors"
+              style={{ color: "rgba(120, 113, 108, 0.8)" }}
             >
               ⚙️
             </ActionIcon>
           </Group>
         </motion.div>
       </div>
-    </motion.div>
+    </div>
   );
 };
