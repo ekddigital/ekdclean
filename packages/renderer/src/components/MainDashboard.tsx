@@ -30,6 +30,14 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
   const [scanProgress, setScanProgress] = useState(0);
   const [scanResults, setScanResults] = useState<ScanResult[]>([]);
   const [isScanning, setIsScanning] = useState(false);
+  const [isCleaning, setIsCleaning] = useState(false);
+  const [cleaningProgress, setCleaningProgress] = useState({
+    current: 0,
+    total: 0,
+    currentCategory: "",
+    filesRemoved: 0,
+    spaceFreed: 0,
+  });
   const [activityHistory, setActivityHistory] = useState<ActivityItem[]>([]);
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
   const [memoryUsage, setMemoryUsage] = useState<{
@@ -45,13 +53,29 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
     loadActivityHistory();
     loadMemoryUsage();
 
+    // Listen for cleaning progress updates
+    const handleCleanProgress = (progress: any) => {
+      setCleaningProgress(progress);
+    };
+
+    // Add IPC listener for cleaning progress
+    if (window.electronAPI?.onCleanProgress) {
+      window.electronAPI.onCleanProgress(handleCleanProgress);
+    }
+
     // Refresh data periodically
     const interval = setInterval(() => {
       loadMemoryUsage();
       loadActivityHistory();
     }, 5000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      // Remove IPC listener
+      if (window.electronAPI?.offCleanProgress) {
+        window.electronAPI.offCleanProgress(handleCleanProgress);
+      }
+    };
   }, []);
 
   const loadSystemData = async () => {
@@ -143,6 +167,15 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
     if (scanResults.length === 0) return;
 
     try {
+      setIsCleaning(true);
+      setCleaningProgress({
+        current: 0,
+        total: scanResults.length,
+        currentCategory: "",
+        filesRemoved: 0,
+        spaceFreed: 0,
+      });
+
       soundManager.playClick();
       const cleanResult = await window.electronAPI.cleanFiles(scanResults);
 
@@ -158,6 +191,8 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
     } catch (error) {
       console.error("Clean failed:", error);
       soundManager.playError();
+    } finally {
+      setIsCleaning(false);
     }
   };
 
@@ -289,14 +324,19 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                   {scanResults.length > 0 && (
                     <motion.button
                       onClick={handleCleanFiles}
-                      className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-8 py-3 rounded-xl font-semibold flex items-center gap-2 hover:from-green-600 hover:to-emerald-600 transition-all shadow-lg"
-                      whileHover={{ scale: 1.02, y: -2 }}
-                      whileTap={{ scale: 0.98 }}
+                      disabled={isCleaning}
+                      className={`${
+                        isCleaning
+                          ? "bg-gray-400 cursor-not-allowed"
+                          : "bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
+                      } text-white px-8 py-3 rounded-xl font-semibold flex items-center gap-2 transition-all shadow-lg`}
+                      whileHover={!isCleaning ? { scale: 1.02, y: -2 } : {}}
+                      whileTap={!isCleaning ? { scale: 0.98 } : {}}
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
                     >
                       <Trash2 className="h-5 w-5" />
-                      Clean Now
+                      {isCleaning ? "Cleaning..." : "Clean Now"}
                     </motion.button>
                   )}
                 </div>
@@ -324,6 +364,45 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                     <div className="flex items-center gap-2 text-amber-600">
                       <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
                       <span className="text-sm font-medium">Analyzing...</span>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Cleaning Progress Bar */}
+              {isCleaning && (
+                <motion.div
+                  className="mb-8"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
+                  <div className="bg-gray-200/50 rounded-full h-3 overflow-hidden shadow-inner">
+                    <motion.div
+                      className="bg-gradient-to-r from-red-500 to-pink-500 h-full rounded-full shadow-sm"
+                      initial={{ width: 0 }}
+                      animate={{
+                        width: `${cleaningProgress.total > 0 ? (cleaningProgress.current / cleaningProgress.total) * 100 : 0}%`,
+                      }}
+                      transition={{ duration: 0.3 }}
+                    />
+                  </div>
+                  <div className="flex justify-between items-center mt-2">
+                    <p className="text-gray-600 text-sm font-medium">
+                      {cleaningProgress.total > 0
+                        ? Math.round(
+                            (cleaningProgress.current /
+                              cleaningProgress.total) *
+                              100
+                          )
+                        : 0}
+                      % complete
+                    </p>
+                    <div className="flex items-center gap-2 text-red-600">
+                      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                      <span className="text-sm font-medium">
+                        Cleaning {cleaningProgress.currentCategory}... (
+                        {cleaningProgress.current}/{cleaningProgress.total})
+                      </span>
                     </div>
                   </div>
                 </motion.div>

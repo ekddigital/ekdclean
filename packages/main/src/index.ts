@@ -560,9 +560,12 @@ class SystemScanner {
               await fs.unlink(fullPath);
               filesDeleted += 1;
             }
-          } catch (error) {
+          } catch (error: any) {
             // Skip files we can't delete (permissions, in use, etc.)
-            console.warn(`Could not delete ${fullPath}:`, error);
+            // Don't log ENOENT errors as they're expected (files may be deleted by other processes)
+            if (error.code !== "ENOENT") {
+              console.warn(`Could not delete ${fullPath}:`, error);
+            }
           }
         }
       } else {
@@ -576,8 +579,11 @@ class SystemScanner {
           filesDeleted += 1;
         }
       }
-    } catch (error) {
-      console.warn(`Could not process ${targetPath}:`, error);
+    } catch (error: any) {
+      // Don't log ENOENT errors as they're expected
+      if (error.code !== "ENOENT") {
+        console.warn(`Could not process ${targetPath}:`, error);
+      }
     }
 
     return { filesDeleted, sizeFreed };
@@ -854,11 +860,12 @@ class EKDCleanApp {
     });
 
     // Real file cleaning handler
-    ipcMain.handle("clean-files", async (_event, scanResults: ScanResult[]) => {
+    ipcMain.handle("clean-files", async (event, scanResults: ScanResult[]) => {
       const startTime = Date.now();
       let filesRemoved = 0;
       let spaceFreed = 0;
       const errors: string[] = [];
+      const totalCategories = scanResults.length;
 
       SystemScanner.addActivity({
         id: `activity_${Date.now()}`,
@@ -869,7 +876,18 @@ class EKDCleanApp {
         status: "running",
       });
 
-      for (const result of scanResults) {
+      for (let i = 0; i < scanResults.length; i++) {
+        const result = scanResults[i];
+
+        // Send progress update to renderer
+        event.sender.send("clean-progress", {
+          current: i + 1,
+          total: totalCategories,
+          currentCategory: result.name,
+          filesRemoved,
+          spaceFreed,
+        });
+
         try {
           if (result.safe && result.type !== "large") {
             // Only clean safe items automatically

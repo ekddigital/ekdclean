@@ -86,6 +86,17 @@ export interface ElectronAPI {
   }>;
   getRecentActivity: () => Promise<ActivityItem[]>;
   cleanFiles: (scanResults: ScanResult[]) => Promise<CleanResult>;
+  // IPC event methods for progress tracking
+  onCleanProgress: (
+    callback: (progress: {
+      current: number;
+      total: number;
+      currentCategory: string;
+      filesRemoved: number;
+      spaceFreed: number;
+    }) => void
+  ) => void;
+  offCleanProgress: (callback: (event: any, progress: any) => void) => void;
   // Legacy methods for compatibility
   startScan: (categories: string[]) => Promise<void>;
   getScanProgress: () => Promise<{ progress: number; currentFile: string }>;

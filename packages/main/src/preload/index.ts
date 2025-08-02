@@ -31,6 +31,16 @@ export interface ElectronAPI {
   // Events
   onUpdateProgress: (callback: (progress: number) => void) => void;
   onOperationComplete: (callback: (result: any) => void) => void;
+  onCleanProgress: (
+    callback: (progress: {
+      current: number;
+      total: number;
+      currentCategory: string;
+      filesRemoved: number;
+      spaceFreed: number;
+    }) => void
+  ) => void;
+  offCleanProgress: (callback: (event: any, progress: any) => void) => void;
 }
 
 // Expose protected methods that allow the renderer process to use
@@ -67,6 +77,23 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   onOperationComplete: (callback: (result: any) => void) => {
     ipcRenderer.on("operation-complete", (_event, result) => callback(result));
+  },
+
+  // Clean progress events
+  onCleanProgress: (
+    callback: (progress: {
+      current: number;
+      total: number;
+      currentCategory: string;
+      filesRemoved: number;
+      spaceFreed: number;
+    }) => void
+  ) => {
+    ipcRenderer.on("clean-progress", (_event, progress) => callback(progress));
+  },
+
+  offCleanProgress: (callback: (event: any, progress: any) => void) => {
+    ipcRenderer.off("clean-progress", callback);
   },
 } satisfies ElectronAPI);
 
