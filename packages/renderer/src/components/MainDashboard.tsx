@@ -220,6 +220,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
           ? "bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900"
           : "bg-gradient-to-br from-gray-50 via-white to-gray-100"
       }`}
+      style={{ marginLeft: "260px" }}
     >
       {/* Premium Header */}
       <div

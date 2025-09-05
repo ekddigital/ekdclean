@@ -9,8 +9,13 @@ export const LoadingScreen: React.FC = () => {
   return (
     <Center
       h="100vh"
+      w="100vw"
       style={{
         background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+        position: "fixed",
+        top: 0,
+        left: 0,
+        zIndex: 9999,
       }}
     >
       <motion.div

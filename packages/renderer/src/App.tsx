@@ -126,7 +126,7 @@ const App: React.FC = () => {
   return (
     <AppShell
       padding={0}
-      navbar={{ width: 280, breakpoint: "sm" }}
+      navbar={{ width: 260, breakpoint: "sm" }}
       style={{
         background: isDarkMode
           ? "linear-gradient(135deg, #1a1a1a 0%, #2d1b1b 25%, #3d2914 50%, #1f1f1f 75%, #0f0f0f 100%)"
@@ -138,7 +138,7 @@ const App: React.FC = () => {
     >
       {/* Sidebar */}
       <AppShell.Navbar
-        p="md"
+        p="sm"
         style={{
           background: isDarkMode
             ? "rgba(30, 30, 30, 0.9)"
@@ -147,6 +147,7 @@ const App: React.FC = () => {
           borderRight: isDarkMode
             ? "1px solid rgba(245, 158, 11, 0.1)"
             : "1px solid rgba(229, 231, 235, 0.5)",
+          padding: "12px",
         }}
       >
         <Sidebar
@@ -158,7 +159,7 @@ const App: React.FC = () => {
       </AppShell.Navbar>
 
       {/* Main Content */}
-      <AppShell.Main style={{ height: "100vh", overflow: "auto" }}>
+      <AppShell.Main style={{ height: "100vh", overflow: "auto", padding: 0 }}>
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

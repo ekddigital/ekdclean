@@ -74,7 +74,10 @@ export const SystemJunkView: React.FC = () => {
     scanResults.reduce((total, result) => total + result.files, 0);
 
   return (
-    <div className="h-full bg-gradient-to-br from-gray-50 via-white to-gray-100 overflow-hidden">
+    <div
+      className="h-full bg-gradient-to-br from-gray-50 via-white to-gray-100 overflow-hidden"
+      style={{ marginLeft: "260px" }}
+    >
       {/* Header */}
       <div className="bg-white/80 backdrop-blur-xl border-b border-gray-200/50 px-8 py-6">
         <div className="flex items-center justify-between">
