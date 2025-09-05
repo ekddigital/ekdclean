@@ -47,7 +47,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
 
   return (
     <div
-      className={`h-full overflow-y-auto ${
+      className={`h-full overflow-y-auto rounded-l-3xl ${
         isDarkMode
           ? "bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900"
           : "bg-gradient-to-br from-gray-50 via-white to-gray-100"
@@ -63,40 +63,44 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
       />
 
       {/* Main Content */}
-      <div className="flex-1 p-8 space-y-8 overflow-y-auto">
-        {/* Smart Scan Section */}
-        <SmartScanSection
-          isScanning={isScanning}
-          isCleaning={isCleaning}
-          scanProgress={scanProgress}
-          scanResults={scanResults}
-          cleaningProgress={cleaningProgress}
-          onStartScan={handleStartScan}
-          onStartClean={handleStartClean}
-          formatBytes={formatBytes}
-          getTotalSize={getTotalSize}
-          getTotalFiles={getTotalFiles}
-        />
+      <div className="flex-1 p-6 space-y-6 overflow-y-auto">
+        <div className="max-w-7xl mx-auto space-y-6">
+          {/* Smart Scan Section */}
+          <SmartScanSection
+            isScanning={isScanning}
+            isCleaning={isCleaning}
+            scanProgress={scanProgress}
+            scanResults={scanResults}
+            cleaningProgress={cleaningProgress}
+            onStartScan={handleStartScan}
+            onStartClean={handleStartClean}
+            formatBytes={formatBytes}
+            getTotalSize={getTotalSize}
+            getTotalFiles={getTotalFiles}
+            isDarkMode={isDarkMode}
+          />
 
-        {/* System Stats Grid */}
-        <SystemStatsGrid
-          memoryUsage={memoryUsage}
-          systemInfo={systemInfo}
-          activityHistory={activityHistory}
-          scanResults={scanResults}
-          formatBytes={formatBytes}
-          formatTimeAgo={formatTimeAgo}
-          getTotalSize={getTotalSize}
-          getTotalFiles={getTotalFiles}
-        />
+          {/* System Stats Grid */}
+          <SystemStatsGrid
+            memoryUsage={memoryUsage}
+            systemInfo={systemInfo}
+            activityHistory={activityHistory}
+            scanResults={scanResults}
+            formatBytes={formatBytes}
+            formatTimeAgo={formatTimeAgo}
+            getTotalSize={getTotalSize}
+            getTotalFiles={getTotalFiles}
+            isDarkMode={isDarkMode}
+          />
 
-        {/* Scan Results List */}
-        <ScanResultsList
-          scanResults={scanResults}
-          formatBytes={formatBytes}
-          getTotalSize={getTotalSize}
-          getTotalFiles={getTotalFiles}
-        />
+          {/* Scan Results List */}
+          <ScanResultsList
+            scanResults={scanResults}
+            formatBytes={formatBytes}
+            getTotalSize={getTotalSize}
+            getTotalFiles={getTotalFiles}
+          />
+        </div>
       </div>
     </div>
   );

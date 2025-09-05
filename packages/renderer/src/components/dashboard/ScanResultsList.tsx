@@ -68,30 +68,30 @@ export const ScanResultsList: React.FC<ScanResultsListProps> = ({
       {/* Glow Effect */}
       <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 to-pink-500/5 rounded-3xl blur-2xl" />
 
-      <div className="relative bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/30 overflow-hidden">
+      <div className="relative bg-gradient-to-br from-white/90 to-red-50/50 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/30 overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-red-50 to-pink-50 px-8 py-6 border-b border-red-100/50">
+        <div className="bg-gradient-to-r from-red-50/80 to-pink-50/80 px-10 py-8 border-b border-red-100/50">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-red-500 to-pink-600 rounded-2xl flex items-center justify-center shadow-xl">
-                <Trash2 className="h-7 w-7 text-white" />
+            <div className="flex items-center gap-5">
+              <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-pink-600 rounded-3xl flex items-center justify-center shadow-2xl">
+                <Trash2 className="h-8 w-8 text-white" />
               </div>
               <div>
-                <h3 className="text-2xl font-black text-gray-900">
+                <h3 className="text-3xl font-black text-gray-900 mb-1">
                   Ready for Cleanup
                 </h3>
-                <p className="text-sm font-semibold text-red-600">
+                <p className="text-base font-bold text-red-600">
                   {formatBytes(getTotalSize())} •{" "}
                   {getTotalFiles().toLocaleString()} files • 100% Safe
                 </p>
               </div>
             </div>
 
-            <div className="text-right">
-              <div className="text-3xl font-black text-red-600">
+            <div className="text-right bg-white/70 rounded-3xl p-6 shadow-lg">
+              <div className="text-4xl font-black text-red-600">
                 {formatBytes(getTotalSize())}
               </div>
-              <div className="text-sm font-bold text-gray-600">
+              <div className="text-base font-bold text-gray-700 mt-2">
                 Total space to free
               </div>
             </div>
@@ -99,46 +99,46 @@ export const ScanResultsList: React.FC<ScanResultsListProps> = ({
         </div>
 
         {/* Results List */}
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y divide-gray-100/50 p-6 space-y-4">
           {scanResults.map((result, index) => (
             <motion.div
               key={result.id}
-              className="px-8 py-6 hover:bg-gray-50/50 transition-all duration-300"
+              className="px-10 py-10 bg-white/60 rounded-3xl hover:bg-white/80 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-[1.02]"
               initial={{ opacity: 0, x: -30 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: 0.1 * index }}
             >
               <div className="flex items-center justify-between">
-                <div className="flex items-start gap-4 flex-1">
+                <div className="flex items-start gap-6 flex-1">
                   <div
-                    className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-lg bg-gradient-to-br ${getTypeColor(result.type)}`}
+                    className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-xl bg-gradient-to-br ${getTypeColor(result.type)}`}
                   >
                     {getTypeIcon(result.type)}
                   </div>
                   <div>
-                    <h4 className="text-lg font-black text-gray-900 mb-1">
+                    <h4 className="text-2xl font-black text-gray-900 mb-2">
                       {result.name}
                     </h4>
-                    <p className="text-sm font-semibold text-gray-600 mb-2">
+                    <p className="text-base font-semibold text-gray-700 mb-4 leading-relaxed">
                       {result.description}
                     </p>
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">
-                        <Shield className="h-3 w-3" />
+                    <div className="flex items-center gap-6">
+                      <div className="flex items-center gap-3 font-bold text-emerald-700 bg-emerald-100/80 px-4 py-2 rounded-2xl shadow-md">
+                        <Shield className="h-4 w-4" />
                         Safe to remove
                       </div>
-                      <div className="text-xs font-semibold text-gray-500">
+                      <div className="font-bold text-gray-600 bg-gray-100/80 px-4 py-2 rounded-2xl">
                         {result.files.toLocaleString()} files
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="text-right">
-                  <div className="text-xl font-black text-red-600 mb-1">
+                <div className="text-right bg-white/80 rounded-2xl p-6 shadow-lg">
+                  <div className="text-3xl font-black text-red-600 mb-3">
                     {formatBytes(result.size)}
                   </div>
-                  <div className="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                  <div className="font-bold text-gray-700 bg-gray-200/70 px-4 py-2 rounded-2xl">
                     {result.type.toUpperCase()}
                   </div>
                 </div>
