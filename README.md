@@ -12,6 +12,8 @@
 
 *Superior system optimization with stunning UI/UX • Built by EKD Digital*
 
+[Features](#features) • [Quick Start](#quick-start) • [Documentation](#documentation) • [Contributing](#contributing)
+
 </div>
 
 ---
@@ -63,6 +65,16 @@ Before you begin, ensure you have the following installed:
   ```
 
 ## 🚀 Quick Start
+
+### For Users
+
+Want to use EKD Clean? See the [Installation Guide](./docs/INSTALLATION.md) for downloading and installing pre-built binaries for your platform.
+
+*Note: Pre-built binaries will be available once the first release is published.*
+
+### For Developers
+
+Want to contribute or build from source? Follow these steps:
 
 ### Installation
 
@@ -284,9 +296,19 @@ We welcome contributions! Please follow these steps:
 
 ## 📖 Documentation
 
-- [Implementation Roadmap](./docs/IMPLEMENTATION_ROADMAP.md) - Detailed development roadmap
-- [CleanMyMac Style Reference](./docs/CleanMyMac-Style-Reference.md) - UI/UX design reference
-- [Project Vision](./ekdclean.md) - Complete project vision and architecture
+- **User Guides**
+  - [Installation Guide](./docs/INSTALLATION.md) - Detailed installation instructions for all platforms
+  - [User Manual](./ekdclean.md) - Complete feature guide and usage instructions
+
+- **Developer Guides**
+  - [Build Guide](./docs/BUILD.md) - Comprehensive build instructions
+  - [Contributing Guidelines](./CONTRIBUTING.md) - How to contribute to the project
+  - [Implementation Roadmap](./docs/IMPLEMENTATION_ROADMAP.md) - Development roadmap
+  - [CleanMyMac Style Reference](./docs/CleanMyMac-Style-Reference.md) - UI/UX design reference
+
+- **Project Information**
+  - [Changelog](./CHANGELOG.md) - Release history and changes
+  - [License](./LICENSE) - MIT License details
 
 ## 🎨 Technology Stack
 
