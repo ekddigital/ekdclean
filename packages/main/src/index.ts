@@ -15,6 +15,8 @@ import {
 } from "os";
 import { promises as fs, constants, existsSync } from "fs";
 import { SystemInfo, ScanResult, ActivityItem } from "./types";
+import { initializeScanners, runSmartScan } from "./scanners";
+import { ScannerRegistry, QuarantineManager, WhitelistManager } from "./core";
 
 // Real system scanning utility functions
 class SystemScanner {
@@ -624,6 +626,9 @@ class EKDCleanApp {
   }
 
   private initializeApp(): void {
+    // Initialize scanners
+    initializeScanners();
+    
     // Handle app ready
     app.whenReady().then(() => {
       this.createMainWindow();
@@ -986,6 +991,116 @@ class EKDCleanApp {
 
     ipcMain.on("window-close", () => {
       this.mainWindow?.close();
+    });
+
+    // New Scanner System IPC Handlers
+    
+    // Get available scanners
+    ipcMain.handle("get-scanners", async () => {
+      const scanners = ScannerRegistry.getSupportedScanners(platform());
+      return scanners.map(scanner => ({
+        id: scanner.id,
+        name: scanner.name,
+        description: scanner.description,
+        supportedOS: scanner.supportedOS,
+      }));
+    });
+
+    // Run smart scan with new scanner system
+    ipcMain.handle("run-smart-scan", async (event) => {
+      try {
+        const items = await runSmartScan({
+          dryRun: true,
+          onProgress: (scannerName, progress) => {
+            event.sender.send("scan-progress", {
+              scanner: scannerName,
+              progress: Math.round(progress * 100),
+            });
+          },
+        });
+
+        return items;
+      } catch (error) {
+        console.error("Smart scan failed:", error);
+        throw error;
+      }
+    });
+
+    // Run specific scanner
+    ipcMain.handle("run-scanner", async (event, scannerId: string, options: any = {}) => {
+      try {
+        const scanner = ScannerRegistry.get(scannerId);
+        if (!scanner) {
+          throw new Error(`Scanner not found: ${scannerId}`);
+        }
+
+        const items = await scanner.scan({
+          dryRun: options.dryRun !== false,
+          onProgress: (progress) => {
+            event.sender.send("scanner-progress", {
+              scannerId,
+              progress: Math.round(progress * 100),
+            });
+          },
+        });
+
+        return items;
+      } catch (error) {
+        console.error(`Scanner ${scannerId} failed:`, error);
+        throw error;
+      }
+    });
+
+    // Clean items using scanner
+    ipcMain.handle("clean-items", async (_event, scannerId: string, items: any[], options: any = {}) => {
+      try {
+        const scanner = ScannerRegistry.get(scannerId);
+        if (!scanner) {
+          throw new Error(`Scanner not found: ${scannerId}`);
+        }
+
+        const result = await scanner.clean(items, {
+          backup: options.backup !== false,
+          quarantine: options.quarantine !== false,
+        });
+
+        return result;
+      } catch (error) {
+        console.error(`Clean operation failed:`, error);
+        throw error;
+      }
+    });
+
+    // Quarantine management
+    ipcMain.handle("get-quarantine-items", async () => {
+      await QuarantineManager.initialize();
+      return await QuarantineManager.listEntries();
+    });
+
+    ipcMain.handle("restore-quarantine-item", async (_event, quarantineId: string) => {
+      await QuarantineManager.initialize();
+      return await QuarantineManager.restoreFile(quarantineId);
+    });
+
+    ipcMain.handle("clear-quarantine", async (_event, olderThanDays?: number) => {
+      await QuarantineManager.initialize();
+      return await QuarantineManager.clearQuarantine(olderThanDays);
+    });
+
+    // Whitelist management
+    ipcMain.handle("get-whitelist-rules", async () => {
+      await WhitelistManager.initialize();
+      return await WhitelistManager.listRules();
+    });
+
+    ipcMain.handle("add-whitelist-rule", async (_event, pattern: string, type: string, reason: string) => {
+      await WhitelistManager.initialize();
+      return await WhitelistManager.addRule(pattern, type as any, reason);
+    });
+
+    ipcMain.handle("remove-whitelist-rule", async (_event, ruleId: string) => {
+      await WhitelistManager.initialize();
+      return await WhitelistManager.removeRule(ruleId);
     });
   }
 }
