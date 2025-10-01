@@ -11,7 +11,11 @@
         "build:main": "tsc -p packages/main",
         "build:renderer": "cd packages/renderer && vite build",
         "start": "electron dist/main/src/index.js",
-        "package": "electron-builder",
+        "package": "npm run build && electron-builder",
+        "package:mac": "npm run build && electron-builder --mac",
+        "package:win": "npm run build && electron-builder --win",
+        "package:linux": "npm run build && electron-builder --linux",
+        "package:all": "npm run build && electron-builder --mac --win --linux",
         "clean": "rm -rf dist",
         "lint": "eslint packages/*/src/**/*.{ts,tsx}",
         "format": "prettier --write \"packages/*/src/**/*.{ts,tsx,js,jsx,json,md}\""
@@ -64,5 +68,77 @@
         "typescript",
         "desktop-app",
         "ekd-digital"
-    ]
+    ],
+    "build": {
+        "appId": "com.ekddigital.ekdclean",
+        "productName": "EKD Clean",
+        "copyright": "Copyright © 2024 EKD Digital",
+        "directories": {
+            "buildResources": "assets",
+            "output": "release"
+        },
+        "files": [
+            "dist/**/*",
+            "packages/renderer/dist/**/*",
+            "node_modules/**/*",
+            "package.json"
+        ],
+        "mac": {
+            "category": "public.app-category.utilities",
+            "target": [
+                {
+                    "target": "dmg",
+                    "arch": ["x64", "arm64"]
+                },
+                {
+                    "target": "zip",
+                    "arch": ["x64", "arm64"]
+                }
+            ],
+            "icon": "assets/logo.png",
+            "darkModeSupport": true,
+            "hardenedRuntime": true,
+            "gatekeeperAssess": false,
+            "entitlements": "build/entitlements.mac.plist",
+            "entitlementsInherit": "build/entitlements.mac.plist"
+        },
+        "win": {
+            "target": [
+                {
+                    "target": "nsis",
+                    "arch": ["x64", "ia32"]
+                },
+                {
+                    "target": "portable",
+                    "arch": ["x64", "ia32"]
+                }
+            ],
+            "icon": "assets/logo.png",
+            "artifactName": "${productName}-${version}-${arch}-Setup.${ext}"
+        },
+        "nsis": {
+            "oneClick": false,
+            "allowToChangeInstallationDirectory": true,
+            "createDesktopShortcut": true,
+            "createStartMenuShortcut": true,
+            "shortcutName": "EKD Clean"
+        },
+        "linux": {
+            "target": [
+                "AppImage",
+                "deb",
+                "rpm"
+            ],
+            "category": "Utility",
+            "icon": "assets/logo.png",
+            "synopsis": "System optimization tool",
+            "description": "A robust cross-platform system optimization tool by EKD Digital"
+        },
+        "deb": {
+            "depends": ["gconf2", "gconf-service", "libnotify4", "libappindicator1", "libxtst6", "libnss3"]
+        },
+        "rpm": {
+            "depends": ["libXScrnSaver"]
+        }
+    }
 }
