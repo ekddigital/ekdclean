@@ -2,10 +2,10 @@
 // import '@testing-library/jest-dom';
 
 // Mock Electron APIs
-jest.mock('electron', () => ({
+jest.mock("electron", () => ({
   app: {
     getPath: jest.fn((name: string) => `/mock/path/${name}`),
-    getVersion: jest.fn(() => '1.0.0'),
+    getVersion: jest.fn(() => "1.0.0"),
   },
   ipcRenderer: {
     on: jest.fn(),

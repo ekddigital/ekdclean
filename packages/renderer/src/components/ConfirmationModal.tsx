@@ -117,9 +117,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
               </button>
 
               {/* Icon */}
-              <div className="flex justify-center mb-4">
-                {getIcon()}
-              </div>
+              <div className="flex justify-center mb-4">{getIcon()}</div>
 
               {/* Title */}
               <h2 className="text-2xl font-bold text-center text-gray-900 dark:text-white mb-3">
@@ -163,7 +161,11 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
               {requireTypedConfirmation && (
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Type <span className="font-mono font-bold">{confirmationPhrase}</span> to confirm
+                    Type{" "}
+                    <span className="font-mono font-bold">
+                      {confirmationPhrase}
+                    </span>{" "}
+                    to confirm
                   </label>
                   <input
                     type="text"
@@ -220,7 +222,9 @@ export const useConfirmation = () => {
     config: {},
   });
 
-  const confirm = (config: Partial<ConfirmationModalProps>): Promise<boolean> => {
+  const confirm = (
+    config: Partial<ConfirmationModalProps>
+  ): Promise<boolean> => {
     return new Promise((resolve) => {
       setConfirmationState({
         isOpen: true,

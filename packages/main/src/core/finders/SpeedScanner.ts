@@ -5,7 +5,12 @@ import { promises as fs, existsSync } from "fs";
 import { join } from "path";
 import { homedir, platform } from "os";
 import { BaseScanner } from "../scanner-core/BaseScanner";
-import { ScanItem, ScanOptions, CleanResult, SupportedOS } from "../scanner-core/types";
+import {
+  ScanItem,
+  ScanOptions,
+  CleanResult,
+  SupportedOS,
+} from "../scanner-core/types";
 import { Logger } from "../logger";
 
 export type StartupItem = {
@@ -66,9 +71,11 @@ export class SpeedScanner extends BaseScanner {
     return items;
   }
 
-  private async scanMacOSLoginItems(_options: ScanOptions): Promise<ScanItem[]> {
+  private async scanMacOSLoginItems(
+    _options: ScanOptions
+  ): Promise<ScanItem[]> {
     const items: ScanItem[] = [];
-    
+
     try {
       // Scan login items plist
       const loginItemsPlist = join(
@@ -78,7 +85,7 @@ export class SpeedScanner extends BaseScanner {
 
       if (existsSync(loginItemsPlist)) {
         const stats = await fs.stat(loginItemsPlist);
-        
+
         items.push({
           id: `login_items_${Date.now()}`,
           path: loginItemsPlist,
@@ -104,9 +111,12 @@ export class SpeedScanner extends BaseScanner {
 
   private async scanWindowsStartup(options: ScanOptions): Promise<ScanItem[]> {
     const items: ScanItem[] = [];
-    
+
     const startupPaths = [
-      join(homedir(), "AppData/Roaming/Microsoft/Windows/Start Menu/Programs/Startup"),
+      join(
+        homedir(),
+        "AppData/Roaming/Microsoft/Windows/Start Menu/Programs/Startup"
+      ),
       "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Startup",
     ];
 
@@ -150,7 +160,7 @@ export class SpeedScanner extends BaseScanner {
 
   private async scanLinuxAutostart(options: ScanOptions): Promise<ScanItem[]> {
     const items: ScanItem[] = [];
-    
+
     const autostartPaths = [
       join(homedir(), ".config/autostart"),
       "/etc/xdg/autostart",
@@ -162,7 +172,9 @@ export class SpeedScanner extends BaseScanner {
       try {
         if (!existsSync(autostartPath)) continue;
 
-        const entries = await fs.readdir(autostartPath, { withFileTypes: true });
+        const entries = await fs.readdir(autostartPath, {
+          withFileTypes: true,
+        });
 
         for (const entry of entries) {
           if (entry.isFile() && entry.name.endsWith(".desktop")) {
@@ -187,7 +199,10 @@ export class SpeedScanner extends BaseScanner {
           }
         }
       } catch (error) {
-        Logger.debug(this.id, `Failed to scan autostart path: ${autostartPath}`);
+        Logger.debug(
+          this.id,
+          `Failed to scan autostart path: ${autostartPath}`
+        );
       }
     }
 
@@ -247,7 +262,9 @@ export class SpeedScanner extends BaseScanner {
     return items;
   }
 
-  private async scanBackgroundServices(options: ScanOptions): Promise<ScanItem[]> {
+  private async scanBackgroundServices(
+    options: ScanOptions
+  ): Promise<ScanItem[]> {
     const items: ScanItem[] = [];
     const os = platform();
 
@@ -271,7 +288,7 @@ export class SpeedScanner extends BaseScanner {
 
   private async scanSystemdServices(options: ScanOptions): Promise<ScanItem[]> {
     const items: ScanItem[] = [];
-    
+
     const servicePaths = [
       join(homedir(), ".config/systemd/user"),
       "/etc/systemd/user",
@@ -308,7 +325,10 @@ export class SpeedScanner extends BaseScanner {
           }
         }
       } catch (error) {
-        Logger.debug(this.id, `Failed to scan systemd services: ${servicePath}`);
+        Logger.debug(
+          this.id,
+          `Failed to scan systemd services: ${servicePath}`
+        );
       }
     }
 
@@ -325,16 +345,13 @@ export class SpeedScanner extends BaseScanner {
     ];
 
     // Critical system agents (never disable)
-    const criticalPatterns = [
-      "com.apple.",
-      "system.",
-    ];
+    const criticalPatterns = ["com.apple.", "system."];
 
-    if (criticalPatterns.some(pattern => fileName.includes(pattern))) {
+    if (criticalPatterns.some((pattern) => fileName.includes(pattern))) {
       return false;
     }
 
-    return safePatterns.some(pattern => fileName.includes(pattern));
+    return safePatterns.some((pattern) => fileName.includes(pattern));
   }
 
   async clean(

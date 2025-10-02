@@ -1,7 +1,7 @@
 // EKD Clean - TrashBinsScanner Unit Tests
 // Built by EKD Digital
 
-import { TrashBinsScanner } from '../../../packages/main/src/core/finders/TrashBinsScanner';
+import { TrashBinsScanner } from "../../../packages/main/src/core/finders/TrashBinsScanner";
 
 // Mock modules
 const mockReaddir = jest.fn();
@@ -9,7 +9,7 @@ const mockStat = jest.fn();
 const mockRm = jest.fn();
 const mockExistsSync = jest.fn();
 
-jest.mock('fs', () => ({
+jest.mock("fs", () => ({
   promises: {
     readdir: mockReaddir,
     stat: mockStat,
@@ -18,7 +18,7 @@ jest.mock('fs', () => ({
   existsSync: mockExistsSync,
 }));
 
-describe('TrashBinsScanner', () => {
+describe("TrashBinsScanner", () => {
   let scanner: TrashBinsScanner;
 
   beforeEach(() => {
@@ -26,8 +26,8 @@ describe('TrashBinsScanner', () => {
     jest.clearAllMocks();
   });
 
-  describe('scan', () => {
-    it('should return empty array when no trash items exist', async () => {
+  describe("scan", () => {
+    it("should return empty array when no trash items exist", async () => {
       mockExistsSync.mockReturnValue(false);
 
       const results = await scanner.scan({
@@ -37,15 +37,15 @@ describe('TrashBinsScanner', () => {
       expect(results).toEqual([]);
     });
 
-    it('should find trash items with correct metadata', async () => {
+    it("should find trash items with correct metadata", async () => {
       const mockTrashItems = [
         {
-          name: 'old-document.pdf',
+          name: "old-document.pdf",
           isDirectory: () => false,
           isFile: () => true,
         },
         {
-          name: 'cached-image.jpg',
+          name: "cached-image.jpg",
           isDirectory: () => false,
           isFile: () => true,
         },
@@ -66,18 +66,20 @@ describe('TrashBinsScanner', () => {
 
       expect(results.length).toBeGreaterThan(0);
       expect(results[0]).toMatchObject({
-        category: 'trash',
+        category: "trash",
         safeToDelete: true,
         confidence: 1.0,
       });
-      expect(results[0].metadata).toHaveProperty('ageInDays');
+      expect(results[0].metadata).toHaveProperty("ageInDays");
       expect(results[0].metadata?.ageInDays).toBe(7);
     });
 
-    it('should handle scan cancellation', async () => {
+    it("should handle scan cancellation", async () => {
       const cancelToken = {
         cancelled: false,
-        cancel: () => { cancelToken.cancelled = true; },
+        cancel: () => {
+          cancelToken.cancelled = true;
+        },
       };
 
       // Simulate cancellation during scan
@@ -95,7 +97,7 @@ describe('TrashBinsScanner', () => {
       expect(results).toEqual([]);
     });
 
-    it('should report progress during scan', async () => {
+    it("should report progress during scan", async () => {
       const progressUpdates: number[] = [];
       const onProgress = (progress: number) => {
         progressUpdates.push(progress);
@@ -113,16 +115,16 @@ describe('TrashBinsScanner', () => {
     });
   });
 
-  describe('clean', () => {
-    it('should move items to quarantine when quarantine option is true', async () => {
+  describe("clean", () => {
+    it("should move items to quarantine when quarantine option is true", async () => {
       const mockItems = [
         {
-          id: 'test-1',
-          path: '/mock/trash/file1.txt',
+          id: "test-1",
+          path: "/mock/trash/file1.txt",
           sizeBytes: 1024,
           discoveredAt: new Date().toISOString(),
-          category: 'trash',
-          reason: 'Test trash item',
+          category: "trash",
+          reason: "Test trash item",
           safeToDelete: true,
           confidence: 1.0,
         },
@@ -137,15 +139,15 @@ describe('TrashBinsScanner', () => {
       expect(result.quarantined).toBe(true);
     });
 
-    it('should permanently delete items when quarantine option is false', async () => {
+    it("should permanently delete items when quarantine option is false", async () => {
       const mockItems = [
         {
-          id: 'test-1',
-          path: '/mock/trash/file1.txt',
+          id: "test-1",
+          path: "/mock/trash/file1.txt",
           sizeBytes: 1024,
           discoveredAt: new Date().toISOString(),
-          category: 'trash',
-          reason: 'Test trash item',
+          category: "trash",
+          reason: "Test trash item",
           safeToDelete: true,
           confidence: 1.0,
         },
@@ -161,15 +163,15 @@ describe('TrashBinsScanner', () => {
     });
   });
 
-  describe('validate', () => {
-    it('should validate trash items before cleaning', async () => {
+  describe("validate", () => {
+    it("should validate trash items before cleaning", async () => {
       const mockItem = {
-        id: 'test-1',
-        path: '/mock/trash/file1.txt',
+        id: "test-1",
+        path: "/mock/trash/file1.txt",
         sizeBytes: 1024,
         discoveredAt: new Date().toISOString(),
-        category: 'trash',
-        reason: 'Test trash item',
+        category: "trash",
+        reason: "Test trash item",
         safeToDelete: true,
         confidence: 1.0,
       };
@@ -181,14 +183,14 @@ describe('TrashBinsScanner', () => {
       expect(isValid).toBe(true);
     });
 
-    it('should return false for non-existent files', async () => {
+    it("should return false for non-existent files", async () => {
       const mockItem = {
-        id: 'test-1',
-        path: '/nonexistent/file.txt',
+        id: "test-1",
+        path: "/nonexistent/file.txt",
         sizeBytes: 1024,
         discoveredAt: new Date().toISOString(),
-        category: 'trash',
-        reason: 'Test trash item',
+        category: "trash",
+        reason: "Test trash item",
         safeToDelete: true,
         confidence: 1.0,
       };
@@ -201,13 +203,13 @@ describe('TrashBinsScanner', () => {
     });
   });
 
-  describe('restore', () => {
-    it('should restore quarantined trash items', async () => {
-      const quarantineId = 'test-quarantine-id';
+  describe("restore", () => {
+    it("should restore quarantined trash items", async () => {
+      const quarantineId = "test-quarantine-id";
 
       const restored = await scanner.restore(quarantineId);
 
-      expect(typeof restored).toBe('boolean');
+      expect(typeof restored).toBe("boolean");
     });
   });
 });
