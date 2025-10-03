@@ -1,4 +1,4 @@
-name: Build and Release
+name: CI/CD Pipeline
 
 on:
   push:
@@ -12,39 +12,30 @@ env:
   NODE_VERSION: "22.x"
 
 jobs:
-  # Job 1: Build and Test
-  build-and-test:
-    name: Build & Test on ${{ matrix.os }}
+  build:
+    name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
-
       - name: Install dependencies
         run: npm ci
-
       - name: Install renderer dependencies
         working-directory: packages/renderer
         run: npm ci
-
       - name: Build main process
         run: npm run build:main
-
       - name: Build renderer process
         run: npm run build:renderer
-
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -54,71 +45,54 @@ jobs:
             packages/renderer/dist/
           retention-days: 7
 
-  # Job 2: Create Release (only on tags)
   release:
     name: Release for ${{ matrix.config.os }}
-    needs: build-and-test
+    needs: build
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ${{ matrix.config.os }}
-
     strategy:
       fail-fast: false
       matrix:
         config:
           - os: ubuntu-latest
             platform: linux
-            artifact_pattern: "*.{AppImage,deb,rpm}"
           - os: macos-latest
             platform: mac
-            artifact_pattern: "*.{dmg,zip}"
           - os: windows-latest
             platform: win
-            artifact_pattern: "*.{exe,msi}"
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
-
       - name: Install dependencies
         run: npm ci
-
       - name: Install renderer dependencies
         working-directory: packages/renderer
         run: npm ci
-
       - name: Build and Package (macOS)
         if: matrix.config.platform == 'mac'
         run: npm run package:mac
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
-
       - name: Build and Package (Windows)
         if: matrix.config.platform == 'win'
         run: npm run package:win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Build and Package (Linux)
         if: matrix.config.platform == 'linux'
         run: npm run package:linux
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: List release files
-        run: ls -lah release/
-        shell: bash
-
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v1
         with:
-          files: release/${{ matrix.config.artifact_pattern }}
+          files: release/*
           draft: false
           prerelease: false
           generate_release_notes: true
@@ -128,116 +102,13 @@ jobs:
             **Built by EKD Digital** - Superior to CleanMyMac
 
             ### 📦 Downloads
-
-            - **macOS**: Download the `.dmg` file for easy installation
-            - **Windows**: Download the `.exe` installer or `.msi` for enterprise
-            - **Linux**: Choose from `.AppImage`, `.deb`, or `.rpm` based on your distribution
-
-            ### ✨ What's New
-
-            Check the changelog for detailed release notes.
+            - **macOS**: Download the .dmg file
+            - **Windows**: Download the .exe installer
+            - **Linux**: Choose .AppImage, .deb, or .rpm
 
             ### 🔧 Installation
-
-            1. Download the appropriate file for your operating system
+            1. Download the file for your OS
             2. Run the installer
-            3. Launch EKD Clean and start optimizing!
-
-            ---
-
-            **Cross-Platform Excellence** | **Beautiful UI** | **Safe & Secure**
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # Job 3: Update README with Download Links (only on tags)
-  update-readme:
-    name: Update README with Download Links
-    needs: release
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Update README
-        run: |
-          VERSION="${GITHUB_REF#refs/tags/}"
-
-          # Update download links in README
-          sed -i "s|download/v[0-9]*\.[0-9]*\.[0-9]*|download/${VERSION}|g" README.md
-
-          # Update version badge
-          sed -i "s|version-[0-9]*\.[0-9]*\.[0-9]*|version-${VERSION#v}|g" README.md
-
-          echo "Updated README.md with version ${VERSION}"
-
-      - name: Commit and Push Changes
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add README.md
-          git diff --staged --quiet || git commit -m "docs: Update download links to ${{ github.ref_name }}"
-          git push origin HEAD:main
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # Job 4: Create Auto-update Manifest
-  create-update-manifest:
-    name: Create Auto-Update Manifest
-    needs: release
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Get Release Info
-        id: release_info
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const release = await github.rest.repos.getReleaseByTag({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag: context.ref.replace('refs/tags/', '')
-            });
-
-            const assets = release.data.assets.map(asset => ({
-              name: asset.name,
-              url: asset.browser_download_url,
-              size: asset.size
-            }));
-
-            core.setOutput('version', release.data.tag_name);
-            core.setOutput('assets', JSON.stringify(assets));
-
-      - name: Create Update Manifest
-        run: |
-          cat > latest.json << EOF
-          {
-            "version": "${{ steps.release_info.outputs.version }}",
-            "releaseDate": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-            "platforms": {
-              "darwin": {
-                "url": "https://github.com/${{ github.repository }}/releases/download/${{ steps.release_info.outputs.version }}/EKD-Clean-${{ steps.release_info.outputs.version }}-mac.dmg"
-              },
-              "win32": {
-                "url": "https://github.com/${{ github.repository }}/releases/download/${{ steps.release_info.outputs.version }}/EKD-Clean-${{ steps.release_info.outputs.version }}-win-x64-Setup.exe"
-              },
-              "linux": {
-                "url": "https://github.com/${{ github.repository }}/releases/download/${{ steps.release_info.outputs.version }}/EKD-Clean-${{ steps.release_info.outputs.version }}.AppImage"
-              }
-            }
-          }
-          EOF
-
-      - name: Upload Manifest to Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: latest.json
+            3. Launch EKD Clean!
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
