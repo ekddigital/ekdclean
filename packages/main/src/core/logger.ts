@@ -50,18 +50,20 @@ export class Logger {
 
     // Console output
     const consoleMessage = `[${entry.timestamp}] [${level.toUpperCase()}] [${category}] ${message}`;
+    const args = metadata ? [consoleMessage, metadata] : [consoleMessage];
+
     switch (level) {
       case "debug":
-        console.debug(consoleMessage, metadata);
+        console.debug(...args);
         break;
       case "info":
-        console.info(consoleMessage, metadata);
+        console.info(...args);
         break;
       case "warn":
-        console.warn(consoleMessage, metadata);
+        console.warn(...args);
         break;
       case "error":
-        console.error(consoleMessage, metadata);
+        console.error(...args);
         break;
     }
 
@@ -75,19 +77,35 @@ export class Logger {
     }
   }
 
-  static debug(category: string, message: string, metadata?: Record<string, any>): void {
+  static debug(
+    category: string,
+    message: string,
+    metadata?: Record<string, any>
+  ): void {
     this.log("debug", category, message, metadata);
   }
 
-  static info(category: string, message: string, metadata?: Record<string, any>): void {
+  static info(
+    category: string,
+    message: string,
+    metadata?: Record<string, any>
+  ): void {
     this.log("info", category, message, metadata);
   }
 
-  static warn(category: string, message: string, metadata?: Record<string, any>): void {
+  static warn(
+    category: string,
+    message: string,
+    metadata?: Record<string, any>
+  ): void {
     this.log("warn", category, message, metadata);
   }
 
-  static error(category: string, message: string, metadata?: Record<string, any>): void {
+  static error(
+    category: string,
+    message: string,
+    metadata?: Record<string, any>
+  ): void {
     this.log("error", category, message, metadata);
   }
 
@@ -96,10 +114,7 @@ export class Logger {
       if (existsSync(this.logFile)) {
         const stats = await fs.stat(this.logFile);
         if (stats.size >= this.maxLogSize) {
-          const rotatedFile = join(
-            this.logDir,
-            `ekdclean-${Date.now()}.log`
-          );
+          const rotatedFile = join(this.logDir, `ekdclean-${Date.now()}.log`);
           await fs.rename(this.logFile, rotatedFile);
         }
       }
@@ -120,7 +135,7 @@ export class Logger {
       const lines = content.trim().split("\n").filter(Boolean);
       const entries: LogEntry[] = lines
         .slice(-limit)
-        .map(line => {
+        .map((line) => {
           try {
             return JSON.parse(line);
           } catch {

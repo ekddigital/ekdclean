@@ -10,7 +10,6 @@ import {
   HardDrive,
   Clock,
   Zap,
-  Shield,
   Activity,
   Cpu,
   ArrowRight,
@@ -218,7 +217,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
       className={`h-full overflow-y-auto ${
         isDarkMode
           ? "bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900"
-          : "bg-gradient-to-br from-gray-50 via-white to-gray-100"
+          : "bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50"
       }`}
       style={{ marginLeft: "260px" }}
     >
@@ -227,7 +226,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
         className={`backdrop-blur-xl border-b px-8 py-6 ${
           isDarkMode
             ? "bg-gray-900/80 border-gray-700/50"
-            : "bg-white/80 border-gray-200/50"
+            : "bg-white/90 border-indigo-200/40"
         }`}
       >
         <div className="flex items-center justify-between">
@@ -249,7 +248,13 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
 
           <div className="flex items-center gap-6">
             {memoryUsage && (
-              <div className="flex items-center gap-3 bg-white/60 rounded-xl px-4 py-2 border border-gray-200/50">
+              <div
+                className={`flex items-center gap-3 rounded-xl px-4 py-2 border ${
+                  isDarkMode
+                    ? "bg-gray-800/60 border-gray-700/50"
+                    : "bg-white/90 border-indigo-200/40"
+                }`}
+              >
                 <Activity className="h-4 w-4 text-amber-500" />
                 <div>
                   <div className="text-xs text-gray-500 font-medium">
@@ -283,45 +288,96 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
         >
-          <div className="bg-gradient-to-br from-white via-white to-gray-50 rounded-3xl p-8 shadow-xl border border-gray-200/50 relative overflow-hidden">
-            {/* Premium background pattern */}
-            <div className="absolute inset-0 bg-gradient-to-br from-amber-50/50 to-orange-50/30 rounded-3xl" />
-            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-amber-100/30 to-orange-100/20 rounded-full blur-3xl" />
+          <div className="bg-white/90 dark:bg-slate-800/60 backdrop-blur-2xl rounded-3xl p-12 shadow-2xl border border-indigo-200/40 dark:border-slate-700/30 relative overflow-hidden">
+            {/* Glassmorphism gradient overlay */}
+            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 via-transparent to-orange-500/10 rounded-3xl" />
+            <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-amber-400/20 to-orange-400/10 rounded-full blur-3xl" />
 
             <div className="relative z-10">
-              <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-500 rounded-2xl flex items-center justify-center shadow-lg">
-                    <Shield className="h-7 w-7 text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-1">
-                      Smart & Safe Scan
-                    </h2>
-                    <p className="text-gray-600 text-sm">
-                      {isScanning
-                        ? "Intelligently analyzing your system for safe optimization opportunities..."
-                        : "Advanced smart analysis to identify only safe cleanup targets - never touches Downloads, Documents, or personal files"}
-                    </p>
-                  </div>
-                </div>
+              <div className="flex flex-col items-center text-center mb-10">
+                <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">
+                  Smart & Safe Scan
+                </h2>
+                <p className="text-gray-600 dark:text-gray-300 text-base max-w-2xl">
+                  {isScanning
+                    ? "Intelligently analyzing your system for safe optimization opportunities..."
+                    : "Advanced smart analysis to identify only safe cleanup targets - never touches Downloads, Documents, or personal files"}
+                </p>
+              </div>
 
-                <div className="flex gap-3">
-                  <motion.button
-                    onClick={handleStartScan}
-                    disabled={isScanning}
-                    className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-8 py-3 rounded-xl font-semibold flex items-center gap-2 hover:from-amber-600 hover:to-orange-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-                    whileHover={{ scale: 1.02, y: -2 }}
-                    whileTap={{ scale: 0.98 }}
+              {/* Circular Scan Button - Center Stage */}
+              <div className="flex flex-col items-center gap-6">
+                <motion.button
+                  onClick={handleStartScan}
+                  disabled={isScanning}
+                  className="relative focus:outline-none group disabled:opacity-50 disabled:cursor-not-allowed"
+                  whileHover={{ scale: isScanning ? 1 : 1.05 }}
+                  whileTap={{ scale: isScanning ? 1 : 0.95 }}
+                  style={{
+                    width: 180,
+                    height: 180,
+                    borderRadius: "50%",
+                    overflow: "visible",
+                  }}
+                >
+                  {/* Breathing glow effect */}
+                  <motion.div
+                    className="absolute inset-0 rounded-full blur-2xl opacity-40"
+                    style={{
+                      background: "linear-gradient(135deg, #F59E0B, #F97316)",
+                    }}
+                    animate={{
+                      scale: [1, 1.3, 1],
+                      opacity: [0.3, 0.6, 0.3],
+                    }}
+                    transition={{
+                      duration: 3,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
+                  />
+
+                  {/* Main circular button */}
+                  <div
+                    className="absolute inset-0 bg-gradient-to-br from-amber-500 to-orange-500 shadow-2xl"
+                    style={{
+                      borderRadius: "50%",
+                      width: "100%",
+                      height: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
                   >
                     {isScanning ? (
-                      <Pause className="h-5 w-5" />
+                      <Pause className="text-white" size={72} strokeWidth={2} />
                     ) : (
-                      <Play className="h-5 w-5" />
+                      <Play
+                        className="text-white"
+                        size={72}
+                        strokeWidth={2}
+                        fill="white"
+                      />
                     )}
-                    {isScanning ? "Scanning..." : "Start Scan"}
-                  </motion.button>
+                  </div>
 
+                  {/* Hover ring */}
+                  <motion.div
+                    className="absolute inset-0 border-4 border-white/50"
+                    style={{ borderRadius: "50%" }}
+                    initial={{ scale: 1, opacity: 0 }}
+                    whileHover={{ scale: 1.15, opacity: 0.6 }}
+                    transition={{ duration: 0.3 }}
+                  />
+                </motion.button>
+
+                {/* Action Label */}
+                <p className="text-xl font-semibold text-gray-700 dark:text-gray-200">
+                  {isScanning ? "Scanning..." : "Click to Start Smart Scan"}
+                </p>
+
+                {/* Secondary Actions */}
+                <div className="flex gap-3 mt-2">
                   {scanResults.length > 0 && (
                     <motion.button
                       onClick={handleCleanFiles}
@@ -414,10 +470,10 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-white/60 rounded-2xl p-6 border border-gray-200/50 backdrop-blur-sm"
+                  className="bg-white/90 dark:bg-slate-800/60 rounded-2xl p-6 border border-indigo-200/40 dark:border-slate-700/30 backdrop-blur-sm"
                 >
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-bold text-gray-900">
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">
                       Scan Results
                     </h3>
                     <div className="bg-gradient-to-r from-amber-100 to-orange-100 text-amber-700 px-4 py-2 rounded-xl font-semibold text-sm">
@@ -433,7 +489,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: index * 0.1 }}
-                        className="flex items-center justify-between bg-white/80 rounded-xl p-4 border border-gray-200/30 hover:shadow-md transition-all group"
+                        className="flex items-center justify-between bg-white/95 dark:bg-slate-700/60 rounded-xl p-4 border border-gray-200/40 dark:border-slate-600/30 hover:shadow-md transition-all group"
                       >
                         <div className="flex items-center gap-4">
                           <div
@@ -444,20 +500,20 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                             }`}
                           />
                           <div>
-                            <div className="text-gray-900 font-semibold text-sm">
+                            <div className="text-gray-900 dark:text-white font-semibold text-sm">
                               {result.name}
                             </div>
-                            <div className="text-gray-500 text-xs">
+                            <div className="text-gray-600 dark:text-gray-400 text-xs">
                               {result.description}
                             </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-4">
                           <div className="text-right">
-                            <div className="text-gray-900 font-bold text-sm">
+                            <div className="text-gray-900 dark:text-white font-bold text-sm">
                               {formatBytes(result.size)}
                             </div>
-                            <div className="text-gray-500 text-xs">
+                            <div className="text-gray-600 dark:text-gray-400 text-xs">
                               {result.files} files
                             </div>
                           </div>
@@ -483,7 +539,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Memory Usage Card */}
           <motion.div
-            className="bg-white rounded-2xl p-6 shadow-xl border border-gray-200/50 relative overflow-hidden"
+            className="bg-white/95 dark:bg-slate-800/70 rounded-2xl p-6 shadow-xl border border-indigo-200/40 dark:border-slate-700/30 relative overflow-hidden backdrop-blur-sm"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
@@ -495,7 +551,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                 <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg">
                   <HardDrive className="h-5 w-5 text-white" />
                 </div>
-                <h3 className="text-lg font-bold text-gray-900">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
                   Memory Usage
                 </h3>
               </div>
@@ -568,7 +624,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
 
           {/* System Info Card */}
           <motion.div
-            className="bg-white rounded-2xl p-6 shadow-xl border border-gray-200/50 relative overflow-hidden"
+            className="bg-white/95 dark:bg-slate-800/70 rounded-2xl p-6 shadow-xl border border-indigo-200/40 dark:border-slate-700/30 relative overflow-hidden backdrop-blur-sm"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
@@ -580,7 +636,9 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                 <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg">
                   <Cpu className="h-5 w-5 text-white" />
                 </div>
-                <h3 className="text-lg font-bold text-gray-900">System Info</h3>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                  System Info
+                </h3>
               </div>
 
               {systemInfo ? (
@@ -644,7 +702,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
 
           {/* Activity Card */}
           <motion.div
-            className="bg-white rounded-2xl p-6 shadow-xl border border-gray-200/50 relative overflow-hidden"
+            className="bg-white/95 dark:bg-slate-800/70 rounded-2xl p-6 shadow-xl border border-indigo-200/40 dark:border-slate-700/30 relative overflow-hidden backdrop-blur-sm"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
@@ -656,7 +714,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                 <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg">
                   <Clock className="h-5 w-5 text-white" />
                 </div>
-                <h3 className="text-lg font-bold text-gray-900">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
                   Recent Activity
                 </h3>
               </div>
@@ -669,7 +727,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.1 }}
-                      className="flex items-center gap-3 bg-gray-50/50 rounded-xl p-3 hover:bg-gray-100/50 transition-colors"
+                      className="flex items-center gap-3 bg-gradient-to-r from-white/80 to-emerald-50/40 dark:from-slate-700/50 dark:to-slate-800/30 rounded-xl p-3 hover:from-emerald-50/60 hover:to-teal-50/50 dark:hover:from-slate-700/70 dark:hover:to-slate-800/50 transition-all border border-gray-200/30 dark:border-slate-600/20"
                     >
                       <div
                         className={`w-3 h-3 rounded-full shadow-lg ${
@@ -681,25 +739,25 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                         }`}
                       />
                       <div className="flex-1 min-w-0">
-                        <div className="text-gray-900 font-semibold text-sm truncate">
+                        <div className="text-gray-900 dark:text-white font-semibold text-sm truncate">
                           {item.title}
                         </div>
-                        <div className="text-gray-500 text-xs truncate">
+                        <div className="text-gray-600 dark:text-gray-300 text-xs truncate">
                           {item.subtitle}
                         </div>
                       </div>
-                      <div className="text-gray-400 text-xs font-medium">
+                      <div className="text-gray-500 dark:text-gray-400 text-xs font-medium">
                         {formatTimeAgo(new Date(item.timestamp))}
                       </div>
                     </motion.div>
                   ))
                 ) : (
                   <div className="text-center py-8">
-                    <Clock className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                    <p className="text-gray-500 font-medium">
+                    <Clock className="h-12 w-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
+                    <p className="text-gray-600 dark:text-gray-300 font-medium">
                       No recent activity
                     </p>
-                    <p className="text-gray-400 text-sm">
+                    <p className="text-gray-500 dark:text-gray-400 text-sm">
                       Start a scan to see activity here
                     </p>
                   </div>

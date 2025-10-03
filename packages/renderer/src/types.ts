@@ -32,6 +32,7 @@ export interface JunkFile {
 export interface ScanResult {
   id: string;
   name: string;
+  category: string; // e.g., "System Caches", "Application Logs"
   type: "cache" | "temp" | "log" | "duplicate" | "large" | "trash";
   size: number;
   files: number;
@@ -79,6 +80,7 @@ export interface ActivityItem {
 export interface ElectronAPI {
   getSystemInfo: () => Promise<SystemInfo>;
   scanSystem: () => Promise<ScanResult[]>;
+  scanSpecific: (scannerId: string) => Promise<ScanResult[]>;
   getMemoryUsage: () => Promise<{
     used: number;
     total: number;

@@ -4,50 +4,29 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { AppShell } from "@mantine/core";
-import { SystemInfo } from "./types";
 import { MainDashboard } from "./components/MainDashboard";
 import { SystemJunkView } from "./components/views/SystemJunkView";
+import { ScannerView } from "./components/views/ScannerView";
 import { ComingSoonView } from "./components/views/ComingSoonView";
 import { Sidebar } from "./components/Sidebar";
 import { LoadingScreen } from "./components/LoadingScreen";
+import { Camera, Mail, Trash, Package, Shield, Zap } from "lucide-react";
 
 const App: React.FC = () => {
-  const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeItem, setActiveItem] = useState("smart-scan");
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
-    // Initialize app and load system information
+    // Initialize app with smooth loading animation
     const initializeApp = async () => {
       try {
         // Simulate loading time for smooth UX
         await new Promise((resolve) => setTimeout(resolve, 1500));
-
-        // Get system information
-        if (window.electronAPI?.getSystemInfo) {
-          const info = await window.electronAPI.getSystemInfo();
-          setSystemInfo(info);
-        } else {
-          // Fallback system info for testing
-          console.warn("ElectronAPI not available, using fallback data");
-          setSystemInfo({
-            platform: "darwin",
-            arch: "x64",
-            totalMemory: 8589934592,
-            freeMemory: 4294967296,
-            cpuCount: 8,
-            osVersion: "macOS 14.0",
-            nodeVersion: "22.16.0",
-            electronVersion: "32.0.1",
-            appVersion: "1.0.0",
-          });
-        }
-
         setIsLoading(false);
       } catch (error) {
         console.error("Failed to initialize app:", error);
-        // Still show the app even if system info fails
+        // Still show the app even if initialization fails
         setIsLoading(false);
       }
     };
@@ -106,6 +85,85 @@ const App: React.FC = () => {
         );
       case "system-junk":
         return <SystemJunkView />;
+      case "photo-junk":
+        return (
+          <ScannerView
+            config={{
+              scannerId: "photo-junk",
+              title: "Photo Junk",
+              description:
+                "Find and remove duplicate photos, thumbnails, and photo caches",
+              icon: <Camera className="w-6 h-6 text-white" />,
+              gradient: "from-blue-500 to-purple-600",
+              textGradient: "from-blue-600 to-purple-700",
+            }}
+          />
+        );
+      case "mail-attachments":
+        return (
+          <ScannerView
+            config={{
+              scannerId: "mail-attachments",
+              title: "Mail Attachments",
+              description: "Clean up large email attachments and downloads",
+              icon: <Mail className="w-6 h-6 text-white" />,
+              gradient: "from-green-500 to-teal-600",
+              textGradient: "from-green-600 to-teal-700",
+            }}
+          />
+        );
+      case "trash-bins":
+        return (
+          <ScannerView
+            config={{
+              scannerId: "trash-bins",
+              title: "Trash Bins",
+              description: "Empty all trash bins across your system",
+              icon: <Trash className="w-6 h-6 text-white" />,
+              gradient: "from-red-500 to-orange-600",
+              textGradient: "from-red-600 to-orange-700",
+            }}
+          />
+        );
+      case "large-old-files":
+        return (
+          <ScannerView
+            config={{
+              scannerId: "large-old-files",
+              title: "Large & Old Files",
+              description: "Find files over 100MB or older than 90 days",
+              icon: <Package className="w-6 h-6 text-white" />,
+              gradient: "from-yellow-500 to-orange-600",
+              textGradient: "from-yellow-600 to-orange-700",
+            }}
+          />
+        );
+      case "privacy":
+        return (
+          <ScannerView
+            config={{
+              scannerId: "privacy",
+              title: "Privacy",
+              description: "Clear browser data, logs, and recent files",
+              icon: <Shield className="w-6 h-6 text-white" />,
+              gradient: "from-indigo-500 to-purple-600",
+              textGradient: "from-indigo-600 to-purple-700",
+            }}
+          />
+        );
+      case "speed":
+        return (
+          <ScannerView
+            config={{
+              scannerId: "speed",
+              title: "Speed Optimization",
+              description: "Optimize startup items and background services",
+              icon: <Zap className="w-6 h-6 text-white" />,
+              gradient: "from-cyan-500 to-blue-600",
+              textGradient: "from-cyan-600 to-blue-700",
+            }}
+          />
+        );
       default:
         const config = sidebarConfig[activeItem as keyof typeof sidebarConfig];
         return (

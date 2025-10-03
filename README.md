@@ -6,15 +6,58 @@
 
 **A Robust Cross-Platform System Optimization Tool**
 
-[![Build Status](https://github.com/ekddigital/ekdclean/workflows/Build/badge.svg)](https://github.com/ekddigital/ekdclean/actions)
+[![Build Status](https://github.com/ekddigital/ekdclean/workflows/Build%20and%20Release/badge.svg)](https://github.com/ekddigital/ekdclean/actions)
+[![Release](https://img.shields.io/github/v/release/ekddigital/ekdclean?color=blue)](https://github.com/ekddigital/ekdclean/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/ekddigital/ekdclean/total?color=success)](https://github.com/ekddigital/ekdclean/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue.svg)](https://github.com/ekddigital/ekdclean)
 
-*Superior system optimization with stunning UI/UX • Built by EKD Digital*
+_Superior system optimization with stunning UI/UX • Built by EKD Digital_
 
-[Features](#features) • [Quick Start](#quick-start) • [Documentation](#documentation) • [Contributing](#contributing)
+[Download](#-download) • [Features](#-features) • [Quick Start](#-quick-start) • [Documentation](#-documentation) • [Contributing](#-contributing)
 
 </div>
+
+---
+
+## 📥 Download
+
+<div align="center">
+
+### Latest Release: v1.0.0
+
+Get EKD Clean for your operating system:
+
+[![Download for macOS](https://img.shields.io/badge/macOS-Download-blue?style=for-the-badge&logo=apple)](https://github.com/ekddigital/ekdclean/releases/download/v1.0.0/EKD-Clean-1.0.0-mac.dmg)
+[![Download for Windows](https://img.shields.io/badge/Windows-Download-blue?style=for-the-badge&logo=windows)](https://github.com/ekddigital/ekdclean/releases/download/v1.0.0/EKD-Clean-1.0.0-win-x64-Setup.exe)
+[![Download for Linux](https://img.shields.io/badge/Linux-Download-blue?style=for-the-badge&logo=linux)](https://github.com/ekddigital/ekdclean/releases/download/v1.0.0/EKD-Clean-1.0.0.AppImage)
+
+**All Releases**: [View all versions](https://github.com/ekddigital/ekdclean/releases)
+
+</div>
+
+### Installation Instructions
+
+#### 🍎 macOS
+
+1. Download the `.dmg` file
+2. Open the file and drag EKD Clean to Applications
+3. Launch from Applications folder
+
+#### 🪟 Windows
+
+1. Download the `.exe` installer
+2. Run the installer (may need administrator privileges)
+3. Follow the installation wizard
+4. Launch from Start Menu or Desktop shortcut
+
+#### 🐧 Linux
+
+1. Download the `.AppImage` file
+2. Make it executable: `chmod +x EKD-Clean-*.AppImage`
+3. Run: `./EKD-Clean-*.AppImage`
+
+**Alternative formats**: `.deb` for Debian/Ubuntu, `.rpm` for Fedora/RHEL
 
 ---
 
@@ -40,6 +83,7 @@ Before you begin, ensure you have the following installed:
 ### Platform-Specific Requirements
 
 #### Windows
+
 - **Windows 10** or higher
 - **Visual Studio Build Tools** (for native modules)
   ```bash
@@ -47,6 +91,7 @@ Before you begin, ensure you have the following installed:
   ```
 
 #### macOS
+
 - **macOS 10.13** (High Sierra) or higher
 - **Xcode Command Line Tools**
   ```bash
@@ -54,8 +99,10 @@ Before you begin, ensure you have the following installed:
   ```
 
 #### Linux
+
 - **Ubuntu 18.04+** / **Debian 10+** / **Fedora 32+** or equivalent
 - Development tools:
+
   ```bash
   # Ubuntu/Debian
   sudo apt-get install build-essential libssl-dev
@@ -70,7 +117,7 @@ Before you begin, ensure you have the following installed:
 
 Want to use EKD Clean? See the [Installation Guide](./docs/INSTALLATION.md) for downloading and installing pre-built binaries for your platform.
 
-*Note: Pre-built binaries will be available once the first release is published.*
+_Note: Pre-built binaries will be available once the first release is published._
 
 ### For Developers
 
@@ -79,12 +126,14 @@ Want to contribute or build from source? Follow these steps:
 ### Installation
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/ekddigital/ekdclean.git
    cd ekdclean
    ```
 
 2. **Install dependencies**
+
    ```bash
    npm install
    ```
@@ -109,6 +158,7 @@ npm run dev
 ```
 
 This will:
+
 - Clean previous builds
 - Install dependencies
 - Build the main process
@@ -123,6 +173,7 @@ npm run build
 ```
 
 This compiles:
+
 - Main process (Electron backend)
 - Renderer process (React frontend)
 
@@ -139,6 +190,7 @@ npm start
 Build platform-specific installers and packages:
 
 ### For Your Current Platform
+
 ```bash
 npm run package
 ```
@@ -157,6 +209,7 @@ npm run package -- --linux
 ```
 
 ### Build for All Platforms
+
 ```bash
 npm run package -- --mac --win --linux
 ```
@@ -184,15 +237,15 @@ ekd-clean/
 
 ## 🛠️ Available Scripts
 
-| Script | Description |
-|--------|-------------|
-| `npm run dev` | Start development environment with hot-reload |
-| `npm run build` | Build for production |
-| `npm start` | Run the built application |
-| `npm run package` | Create distributable packages |
-| `npm run clean` | Remove build artifacts |
-| `npm run lint` | Lint source code |
-| `npm run format` | Format code with Prettier |
+| Script            | Description                                   |
+| ----------------- | --------------------------------------------- |
+| `npm run dev`     | Start development environment with hot-reload |
+| `npm run build`   | Build for production                          |
+| `npm start`       | Run the built application                     |
+| `npm run package` | Create distributable packages                 |
+| `npm run clean`   | Remove build artifacts                        |
+| `npm run lint`    | Lint source code                              |
+| `npm run format`  | Format code with Prettier                     |
 
 ## 🧪 Testing
 
@@ -228,6 +281,7 @@ ELECTRON_ENABLE_LOGGING=true
 ### Build Issues
 
 **Problem**: Build fails with TypeScript errors
+
 ```bash
 # Clean and rebuild
 npm run clean
@@ -236,6 +290,7 @@ npm run build
 ```
 
 **Problem**: Electron doesn't start
+
 ```bash
 # Ensure all dependencies are installed
 npm install
@@ -246,14 +301,17 @@ npm run build
 ### Platform-Specific Issues
 
 #### Windows
+
 - **Error**: `node-gyp` build failures
   - Solution: Install [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/)
 
 #### macOS
+
 - **Error**: Code signing issues
   - Solution: See [electron-builder code signing guide](https://www.electron.build/code-signing)
 
 #### Linux
+
 - **Error**: Missing dependencies
   ```bash
   # Install required libraries
@@ -263,12 +321,14 @@ npm run build
 ### Common Issues
 
 **Issue**: Port 3000 already in use
+
 ```bash
 # The renderer uses port 3000 by default
 # Change in packages/renderer/vite.config.ts
 ```
 
 **Issue**: Dependencies out of sync
+
 ```bash
 # Remove all node_modules and reinstall
 rm -rf node_modules packages/*/node_modules
@@ -328,6 +388,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 **EKD Digital** is a forward-thinking technology company specializing in innovative software solutions and digital products. EKD Clean represents our expansion into desktop application development, leveraging our web technology expertise to create superior cross-platform tools.
 
 ### Our Expertise
+
 - Modern Web Applications (Next.js, React, TypeScript)
 - Full-Stack Development
 - Cross-Platform Solutions

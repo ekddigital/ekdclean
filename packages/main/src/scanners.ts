@@ -9,6 +9,7 @@ import { LargeOldFilesScanner } from "./core/finders/LargeOldFilesScanner";
 import { PhotoJunkScanner } from "./core/finders/PhotoJunkScanner";
 import { MailAttachmentsScanner } from "./core/finders/MailAttachmentsScanner";
 import { PrivacyScanner } from "./core/finders/PrivacyScanner";
+import { SpeedScanner } from "./core/finders/SpeedScanner";
 import { Logger } from "./core/logger";
 
 export function initializeScanners(): void {
@@ -21,9 +22,13 @@ export function initializeScanners(): void {
   ScannerRegistry.register(new PhotoJunkScanner(), "photo-junk");
   ScannerRegistry.register(new MailAttachmentsScanner(), "mail-attachments");
   ScannerRegistry.register(new PrivacyScanner(), "privacy");
+  ScannerRegistry.register(new SpeedScanner(), "speed");
 
   const supportedScanners = ScannerRegistry.getSupportedScanners(platform());
-  Logger.info("Scanners", `Initialized ${supportedScanners.length} scanners for ${platform()}`);
+  Logger.info(
+    "Scanners",
+    `Initialized ${supportedScanners.length} scanners for ${platform()}`
+  );
 }
 
 export async function runSmartScan(options: {
@@ -33,14 +38,17 @@ export async function runSmartScan(options: {
   const scanners = ScannerRegistry.getSupportedScanners(platform());
   const allItems: any[] = [];
 
-  Logger.info("SmartScan", `Running smart scan with ${scanners.length} scanners`);
+  Logger.info(
+    "SmartScan",
+    `Running smart scan with ${scanners.length} scanners`
+  );
 
   for (let i = 0; i < scanners.length; i++) {
     const scanner = scanners[i];
-    
+
     try {
       Logger.info("SmartScan", `Running scanner: ${scanner.name}`);
-      
+
       const items = await scanner.scan({
         dryRun: options.dryRun !== false,
         onProgress: (progress) => {
@@ -60,6 +68,9 @@ export async function runSmartScan(options: {
     }
   }
 
-  Logger.info("SmartScan", `Smart scan complete. Found ${allItems.length} total items`);
+  Logger.info(
+    "SmartScan",
+    `Smart scan complete. Found ${allItems.length} total items`
+  );
   return allItems;
 }

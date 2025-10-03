@@ -20,15 +20,15 @@ export const ComingSoonView: React.FC<ComingSoonViewProps> = ({
 }) => {
   return (
     <div
-      className="h-full bg-gradient-to-br from-gray-50 via-white to-gray-100 overflow-hidden rounded-l-3xl"
+      className="h-full bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 overflow-hidden rounded-l-3xl"
       style={{ marginLeft: "260px" }}
     >
       {/* Header */}
-      <div className="bg-white/90 backdrop-blur-xl border-b border-gray-200/50 px-8 py-6 mx-6 mt-6 rounded-t-3xl shadow-lg">
+      <div className="bg-white/90 dark:bg-slate-800/70 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-700/30 px-8 py-6 mx-6 mt-6 rounded-t-3xl shadow-lg">
         <div className="flex items-center gap-4">
           <motion.button
             onClick={onBack}
-            className="flex items-center gap-3 text-gray-600 hover:text-amber-600 transition-all duration-300 bg-gray-100/60 hover:bg-amber-100/60 px-4 py-2 rounded-2xl"
+            className="flex items-center gap-3 text-gray-600 dark:text-gray-300 hover:text-amber-600 dark:hover:text-amber-400 transition-all duration-300 bg-gray-100/60 dark:bg-slate-700/50 hover:bg-amber-100/60 dark:hover:bg-amber-900/30 px-4 py-2 rounded-2xl"
             whileHover={{ x: -5, scale: 1.05 }}
           >
             <ArrowLeft className="h-5 w-5" />
@@ -69,13 +69,13 @@ export const ComingSoonView: React.FC<ComingSoonViewProps> = ({
             <h1 className="text-4xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent mb-4">
               {title}
             </h1>
-            <p className="text-gray-700 text-lg leading-relaxed">
+            <p className="text-gray-700 dark:text-gray-300 text-lg leading-relaxed">
               {description}
             </p>
           </motion.div>
 
           <motion.div
-            className="bg-gradient-to-br from-white/80 to-gray-50/80 rounded-3xl p-8 border border-gray-200/50 backdrop-blur-sm shadow-xl"
+            className="bg-gradient-to-br from-white/80 to-gray-50/80 dark:from-slate-800/70 dark:to-slate-900/60 rounded-3xl p-8 border border-gray-200/50 dark:border-gray-700/30 backdrop-blur-sm shadow-xl"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.4 }}
@@ -84,14 +84,16 @@ export const ComingSoonView: React.FC<ComingSoonViewProps> = ({
               <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-500 rounded-2xl flex items-center justify-center shadow-lg">
                 <Wrench className="h-6 w-6 text-white" />
               </div>
-              <h3 className="text-2xl font-bold text-gray-900">Coming Soon</h3>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Coming Soon
+              </h3>
             </div>
-            <p className="text-gray-600 text-base mb-8 leading-relaxed">
+            <p className="text-gray-600 dark:text-gray-300 text-base mb-8 leading-relaxed">
               This feature is currently under development. We're working hard to
               bring you the best system optimization experience.
             </p>
 
-            <div className="flex items-center justify-center gap-3 text-amber-600 bg-amber-50/50 rounded-2xl p-3">
+            <div className="flex items-center justify-center gap-3 text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-900/20 rounded-2xl p-3">
               <Zap className="h-5 w-5" />
               <span className="text-sm font-semibold">
                 EKD Digital - Superior to CleanMyMac

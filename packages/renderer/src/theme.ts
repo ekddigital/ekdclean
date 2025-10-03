@@ -3,44 +3,71 @@
 
 import { createTheme, MantineColorsTuple } from "@mantine/core";
 
-// EKD Digital Brand Colors - Deep Gold & Premium Dark
+// EKD Digital Enhanced Brand Colors - Light Mode Optimized
 const ekdGold: MantineColorsTuple = [
-  "#fffbeb",
-  "#fef3c7",
-  "#fde68a",
-  "#fcd34d",
-  "#fbbf24",
-  "#f59e0b", // EKD Primary Gold
-  "#d97706",
-  "#b45309",
-  "#92400e",
-  "#78350f",
+  "#fffbf5", // Lightest - warm cream
+  "#fff3e0", // Light cream
+  "#ffe6b3", // Soft amber
+  "#ffd680", // Light gold
+  "#ffc94d", // Medium gold
+  "#f59e0b", // Primary brand gold
+  "#e08c00", // Deep gold
+  "#c77a00", // Rich gold
+  "#a86800", // Bronze
+  "#8a5600", // Dark bronze
 ];
 
 const ekdDark: MantineColorsTuple = [
-  "#f8fafc",
-  "#f1f5f9",
-  "#e2e8f0",
-  "#cbd5e1",
-  "#94a3b8",
-  "#64748b",
-  "#475569",
-  "#334155",
-  "#1e293b",
-  "#0f172a",
+  "#fafbfc", // Almost white with blue tint
+  "#f4f6f9", // Very light blue-gray
+  "#e8ecf1", // Light blue-gray
+  "#d4dae3", // Soft blue-gray
+  "#b0b9c7", // Medium blue-gray
+  "#8894a6", // Blue-gray
+  "#66738a", // Steel blue
+  "#4a5568", // Dark steel
+  "#2d3748", // Darker steel
+  "#1a202c", // Dark mode primary
 ];
 
 const ekdAccent: MantineColorsTuple = [
-  "#fef7ee",
-  "#fed7aa",
-  "#fdba74",
-  "#fb923c",
-  "#f97316", // Orange accent
-  "#ea580c",
-  "#dc2626",
-  "#b91c1c",
-  "#991b1b",
-  "#7f1d1d",
+  "#fff8f5", // Soft peach
+  "#ffe9e0", // Light peach
+  "#ffd4c2", // Warm peach
+  "#ffb899", // Coral
+  "#ff9770", // Light coral
+  "#f97316", // Primary orange accent
+  "#e85d00", // Deep orange
+  "#cc4d00", // Rich orange
+  "#b33d00", // Burnt orange
+  "#8a2f00", // Dark orange
+];
+
+// Additional color palettes for better light mode
+const ekdBlue: MantineColorsTuple = [
+  "#f0f9ff", // Ice blue
+  "#e0f2fe", // Sky blue
+  "#bae6fd", // Light blue
+  "#7dd3fc", // Bright blue
+  "#38bdf8", // Vibrant blue
+  "#0ea5e9", // Primary blue
+  "#0284c7", // Deep blue
+  "#0369a1", // Rich blue
+  "#075985", // Dark blue
+  "#0c4a6e", // Darkest blue
+];
+
+const ekdPurple: MantineColorsTuple = [
+  "#faf5ff", // Lavender mist
+  "#f3e8ff", // Light lavender
+  "#e9d5ff", // Soft purple
+  "#d8b4fe", // Light purple
+  "#c084fc", // Medium purple
+  "#a855f7", // Vibrant purple
+  "#9333ea", // Deep purple
+  "#7e22ce", // Rich purple
+  "#6b21a8", // Dark purple
+  "#581c87", // Darkest purple
 ];
 
 export const theme = createTheme({
@@ -49,6 +76,8 @@ export const theme = createTheme({
     ekdGold,
     ekdDark,
     ekdAccent,
+    ekdBlue,
+    ekdPurple,
   },
 
   primaryColor: "ekdGold",

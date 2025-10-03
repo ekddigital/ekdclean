@@ -628,7 +628,7 @@ class EKDCleanApp {
   private initializeApp(): void {
     // Initialize scanners
     initializeScanners();
-    
+
     // Handle app ready
     app.whenReady().then(() => {
       this.createMainWindow();
@@ -994,11 +994,11 @@ class EKDCleanApp {
     });
 
     // New Scanner System IPC Handlers
-    
+
     // Get available scanners
     ipcMain.handle("get-scanners", async () => {
       const scanners = ScannerRegistry.getSupportedScanners(platform());
-      return scanners.map(scanner => ({
+      return scanners.map((scanner) => ({
         id: scanner.id,
         name: scanner.name,
         description: scanner.description,
@@ -1026,50 +1026,94 @@ class EKDCleanApp {
       }
     });
 
-    // Run specific scanner
-    ipcMain.handle("run-scanner", async (event, scannerId: string, options: any = {}) => {
-      try {
-        const scanner = ScannerRegistry.get(scannerId);
-        if (!scanner) {
-          throw new Error(`Scanner not found: ${scannerId}`);
+    // Helper function to aggregate ScanItems into ScanResults for UI
+    const aggregateScanResults = (items: any[]): any[] => {
+      const categoryMap = new Map<string, any>();
+
+      items.forEach((item) => {
+        const category = item.category || "other";
+        if (!categoryMap.has(category)) {
+          categoryMap.set(category, {
+            id: `${category}-${Date.now()}`,
+            name: category
+              .split("-")
+              .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+              .join(" "),
+            category,
+            type: item.metadata?.type || "cache",
+            size: 0,
+            files: 0,
+            path: "",
+            description: item.reason || `Items in ${category}`,
+            safe: item.safeToDelete !== false,
+            scanTime: new Date(),
+            items: [], // Keep original items for cleaning
+          });
         }
 
-        const items = await scanner.scan({
-          dryRun: options.dryRun !== false,
-          onProgress: (progress) => {
-            event.sender.send("scanner-progress", {
-              scannerId,
-              progress: Math.round(progress * 100),
-            });
-          },
-        });
+        const result = categoryMap.get(category);
+        result.size += item.sizeBytes || 0;
+        result.files += 1;
+        result.items.push(item);
+        if (!result.path) result.path = item.path;
+      });
 
-        return items;
-      } catch (error) {
-        console.error(`Scanner ${scannerId} failed:`, error);
-        throw error;
+      return Array.from(categoryMap.values());
+    };
+
+    // Run specific scanner
+    ipcMain.handle(
+      "run-scanner",
+      async (event, scannerId: string, options: any = {}) => {
+        try {
+          const scanner = ScannerRegistry.get(scannerId);
+          if (!scanner) {
+            throw new Error(`Scanner not found: ${scannerId}`);
+          }
+
+          const items = await scanner.scan({
+            dryRun: options.dryRun !== false,
+            onProgress: (progress) => {
+              event.sender.send("scanner-progress", {
+                scannerId,
+                progress: Math.round(progress * 100),
+              });
+            },
+          });
+
+          // Aggregate items by category for UI display
+          const aggregatedResults = aggregateScanResults(items);
+
+          return aggregatedResults;
+        } catch (error) {
+          console.error(`Scanner ${scannerId} failed:`, error);
+          throw error;
+        }
       }
-    });
+    );
 
     // Clean items using scanner
-    ipcMain.handle("clean-items", async (_event, scannerId: string, items: any[], options: any = {}) => {
-      try {
-        const scanner = ScannerRegistry.get(scannerId);
-        if (!scanner) {
-          throw new Error(`Scanner not found: ${scannerId}`);
+    ipcMain.handle(
+      "clean-items",
+      async (_event, scannerId: string, items: any[], options: any = {}) => {
+        try {
+          const scanner = ScannerRegistry.get(scannerId);
+          if (!scanner) {
+            throw new Error(`Scanner not found: ${scannerId}`);
+          }
+
+          const result = await scanner.clean(items, {
+            backup: options.backup !== false,
+            quarantine: options.quarantine !== false,
+          });
+
+          return result;
+        } catch (error) {
+          console.error(`Clean operation failed:`, error);
+          throw error;
         }
-
-        const result = await scanner.clean(items, {
-          backup: options.backup !== false,
-          quarantine: options.quarantine !== false,
-        });
-
-        return result;
-      } catch (error) {
-        console.error(`Clean operation failed:`, error);
-        throw error;
       }
-    });
+    );
 
     // Quarantine management
     ipcMain.handle("get-quarantine-items", async () => {
@@ -1077,15 +1121,21 @@ class EKDCleanApp {
       return await QuarantineManager.listEntries();
     });
 
-    ipcMain.handle("restore-quarantine-item", async (_event, quarantineId: string) => {
-      await QuarantineManager.initialize();
-      return await QuarantineManager.restoreFile(quarantineId);
-    });
+    ipcMain.handle(
+      "restore-quarantine-item",
+      async (_event, quarantineId: string) => {
+        await QuarantineManager.initialize();
+        return await QuarantineManager.restoreFile(quarantineId);
+      }
+    );
 
-    ipcMain.handle("clear-quarantine", async (_event, olderThanDays?: number) => {
-      await QuarantineManager.initialize();
-      return await QuarantineManager.clearQuarantine(olderThanDays);
-    });
+    ipcMain.handle(
+      "clear-quarantine",
+      async (_event, olderThanDays?: number) => {
+        await QuarantineManager.initialize();
+        return await QuarantineManager.clearQuarantine(olderThanDays);
+      }
+    );
 
     // Whitelist management
     ipcMain.handle("get-whitelist-rules", async () => {
@@ -1093,10 +1143,13 @@ class EKDCleanApp {
       return await WhitelistManager.listRules();
     });
 
-    ipcMain.handle("add-whitelist-rule", async (_event, pattern: string, type: string, reason: string) => {
-      await WhitelistManager.initialize();
-      return await WhitelistManager.addRule(pattern, type as any, reason);
-    });
+    ipcMain.handle(
+      "add-whitelist-rule",
+      async (_event, pattern: string, type: string, reason: string) => {
+        await WhitelistManager.initialize();
+        return await WhitelistManager.addRule(pattern, type as any, reason);
+      }
+    );
 
     ipcMain.handle("remove-whitelist-rule", async (_event, ruleId: string) => {
       await WhitelistManager.initialize();
