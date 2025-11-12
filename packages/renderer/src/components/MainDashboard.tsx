@@ -16,27 +16,18 @@ import {
 } from "lucide-react";
 import { ScanResult, ActivityItem, SystemInfo } from "../types";
 import { SoundManager } from "../utils/SoundManager";
+import { EnhancedCleaningIntegration } from "./EnhancedCleaningIntegration";
 
 interface MainDashboardProps {
-  activeItem: string;
   isDarkMode?: boolean;
 }
 
 export const MainDashboard: React.FC<MainDashboardProps> = ({
-  activeItem,
   isDarkMode = false,
 }) => {
   const [scanProgress, setScanProgress] = useState(0);
   const [scanResults, setScanResults] = useState<ScanResult[]>([]);
   const [isScanning, setIsScanning] = useState(false);
-  const [isCleaning, setIsCleaning] = useState(false);
-  const [cleaningProgress, setCleaningProgress] = useState({
-    current: 0,
-    total: 0,
-    currentCategory: "",
-    filesRemoved: 0,
-    spaceFreed: 0,
-  });
   const [activityHistory, setActivityHistory] = useState<ActivityItem[]>([]);
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
   const [memoryUsage, setMemoryUsage] = useState<{
@@ -52,16 +43,6 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
     loadActivityHistory();
     loadMemoryUsage();
 
-    // Listen for cleaning progress updates
-    const handleCleanProgress = (progress: any) => {
-      setCleaningProgress(progress);
-    };
-
-    // Add IPC listener for cleaning progress
-    if (window.electronAPI?.onCleanProgress) {
-      window.electronAPI.onCleanProgress(handleCleanProgress);
-    }
-
     // Refresh data periodically
     const interval = setInterval(() => {
       loadMemoryUsage();
@@ -70,10 +51,6 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
 
     return () => {
       clearInterval(interval);
-      // Remove IPC listener
-      if (window.electronAPI?.offCleanProgress) {
-        window.electronAPI.offCleanProgress(handleCleanProgress);
-      }
     };
   }, []);
 
@@ -159,39 +136,6 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
       console.error("Scan failed:", error);
       setIsScanning(false);
       soundManager.playError();
-    }
-  };
-
-  const handleCleanFiles = async () => {
-    if (scanResults.length === 0) return;
-
-    try {
-      setIsCleaning(true);
-      setCleaningProgress({
-        current: 0,
-        total: scanResults.length,
-        currentCategory: "",
-        filesRemoved: 0,
-        spaceFreed: 0,
-      });
-
-      soundManager.playClick();
-      const cleanResult = await window.electronAPI.cleanFiles(scanResults);
-
-      console.log("Clean result:", cleanResult);
-      setScanResults([]);
-      soundManager.playSuccess();
-
-      // Refresh activity and memory usage
-      setTimeout(() => {
-        loadActivityHistory();
-        loadMemoryUsage();
-      }, 500);
-    } catch (error) {
-      console.error("Clean failed:", error);
-      soundManager.playError();
-    } finally {
-      setIsCleaning(false);
     }
   };
 
@@ -379,22 +323,51 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                 {/* Secondary Actions */}
                 <div className="flex gap-3 mt-2">
                   {scanResults.length > 0 && (
-                    <motion.button
-                      onClick={handleCleanFiles}
-                      disabled={isCleaning}
-                      className={`${
-                        isCleaning
-                          ? "bg-gray-400 cursor-not-allowed"
-                          : "bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
-                      } text-white px-8 py-3 rounded-xl font-semibold flex items-center gap-2 transition-all shadow-lg`}
-                      whileHover={!isCleaning ? { scale: 1.02, y: -2 } : {}}
-                      whileTap={!isCleaning ? { scale: 0.98 } : {}}
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
+                    <EnhancedCleaningIntegration
+                      scanResults={scanResults}
+                      onCleaningComplete={(success) => {
+                        if (success) {
+                          setScanResults([]);
+                          soundManager.playSuccess();
+                          // Refresh activity and memory usage
+                          setTimeout(() => {
+                            loadActivityHistory();
+                            loadMemoryUsage();
+                          }, 500);
+                        }
+                      }}
+                      onCleaningStart={() => {
+                        soundManager.playClick();
+                      }}
                     >
-                      <Trash2 className="h-5 w-5" />
-                      {isCleaning ? "Cleaning..." : "Clean Now"}
-                    </motion.button>
+                      {({ startCleaning, isLoading, canClean, error }) => (
+                        <motion.button
+                          onClick={startCleaning}
+                          disabled={!canClean || isLoading}
+                          className={`${
+                            !canClean || isLoading
+                              ? "bg-gray-400 cursor-not-allowed"
+                              : "bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
+                          } text-white px-8 py-3 rounded-xl font-semibold flex items-center gap-2 transition-all shadow-lg`}
+                          whileHover={
+                            canClean && !isLoading ? { scale: 1.02, y: -2 } : {}
+                          }
+                          whileTap={
+                            canClean && !isLoading ? { scale: 0.98 } : {}
+                          }
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                        >
+                          <Trash2 className="h-5 w-5" />
+                          {isLoading ? "Processing..." : "Clean Now"}
+                          {error && (
+                            <span className="ml-2 text-xs text-red-300">
+                              {error}
+                            </span>
+                          )}
+                        </motion.button>
+                      )}
+                    </EnhancedCleaningIntegration>
                   )}
                 </div>
               </div>
@@ -426,44 +399,8 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                 </motion.div>
               )}
 
-              {/* Cleaning Progress Bar */}
-              {isCleaning && (
-                <motion.div
-                  className="mb-8"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                >
-                  <div className="bg-gray-200/50 rounded-full h-3 overflow-hidden shadow-inner">
-                    <motion.div
-                      className="bg-gradient-to-r from-red-500 to-pink-500 h-full rounded-full shadow-sm"
-                      initial={{ width: 0 }}
-                      animate={{
-                        width: `${cleaningProgress.total > 0 ? (cleaningProgress.current / cleaningProgress.total) * 100 : 0}%`,
-                      }}
-                      transition={{ duration: 0.3 }}
-                    />
-                  </div>
-                  <div className="flex justify-between items-center mt-2">
-                    <p className="text-gray-600 text-sm font-medium">
-                      {cleaningProgress.total > 0
-                        ? Math.round(
-                            (cleaningProgress.current /
-                              cleaningProgress.total) *
-                              100
-                          )
-                        : 0}
-                      % complete
-                    </p>
-                    <div className="flex items-center gap-2 text-red-600">
-                      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                      <span className="text-sm font-medium">
-                        Cleaning {cleaningProgress.currentCategory}... (
-                        {cleaningProgress.current}/{cleaningProgress.total})
-                      </span>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
+              {/* Cleaning Progress will be handled by EnhancedCleaningIntegration */}
+              {/* The cleaning progress is now managed internally by the enhanced cleaning system */}
 
               {/* Beautiful Scan Results */}
               {scanResults.length > 0 && (

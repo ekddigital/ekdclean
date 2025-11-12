@@ -58,6 +58,9 @@ export interface ElectronAPI {
   maximizeWindow: () => void;
   closeWindow: () => void;
 
+  // Generic invoke method for IPC
+  invoke: (channel: string, ...args: any[]) => Promise<any>;
+
   // Events
   onUpdateProgress: (callback: (progress: number) => void) => void;
   onOperationComplete: (callback: (result: any) => void) => void;
@@ -141,6 +144,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   minimizeWindow: () => ipcRenderer.send("window-minimize"),
   maximizeWindow: () => ipcRenderer.send("window-maximize"),
   closeWindow: () => ipcRenderer.send("window-close"),
+
+  // Generic invoke method for IPC
+  invoke: (channel: string, ...args: any[]) =>
+    ipcRenderer.invoke(channel, ...args),
 
   // Events
   onUpdateProgress: (callback: (progress: number) => void) => {

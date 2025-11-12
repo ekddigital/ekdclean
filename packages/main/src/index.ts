@@ -19,6 +19,7 @@ import { ScanItem } from "./core/scanner-core/types";
 import { initializeScanners, runSmartScan } from "./scanners";
 import { ScannerRegistry, QuarantineManager, WhitelistManager } from "./core";
 import { PermissionIPCHandlers } from "./ipc/PermissionIPCHandlers";
+import { setupApplicationIPCHandlers } from "./ipc/ApplicationIPCHandlers";
 
 // Real system scanning utility functions
 class SystemScanner {
@@ -938,7 +939,7 @@ class EKDCleanApp {
       return SystemScanner.getRecentActivity();
     });
 
-    // Real file cleaning handler
+    // Enhanced file cleaning handler with application management
     ipcMain.handle("clean-files", async (event, scanResults: ScanResult[]) => {
       const startTime = Date.now();
       let filesRemoved = 0;
@@ -949,84 +950,135 @@ class EKDCleanApp {
       SystemScanner.addActivity({
         id: `activity_${Date.now()}`,
         type: "clean",
-        title: "Cleaning Started",
-        subtitle: `Cleaning ${scanResults.length} categories`,
+        title: "Enhanced Cleaning Started",
+        subtitle: `Cleaning ${scanResults.length} categories with app management`,
         timestamp: new Date(),
         status: "running",
       });
 
-      for (let i = 0; i < scanResults.length; i++) {
-        const result = scanResults[i];
+      // Import the enhanced SystemJunkScanner
+      const { SystemJunkScanner } = require("./core/finders/SystemJunkScanner");
+      const scanner = new SystemJunkScanner();
 
-        // Send progress update to renderer
-        event.sender.send("clean-progress", {
-          current: i + 1,
-          total: totalCategories,
-          currentCategory: result.name,
-          filesRemoved,
-          spaceFreed,
-        });
+      try {
+        // Extract all file paths from scan results
+        const allFilePaths: string[] = [];
 
-        try {
+        for (const result of scanResults) {
           if (result.safe && result.type !== "large") {
-            // Only clean safe items automatically
-            console.log(`Cleaning ${result.name} at path: ${result.path}`);
-
-            // Determine appropriate deletion options based on type
-            const deleteOptions: { maxAge?: number } = {};
-
-            switch (result.type) {
-              case "temp":
-                deleteOptions.maxAge = 1; // Only delete temp files older than 1 day
-                break;
-              case "log":
-                deleteOptions.maxAge = 7; // Only delete logs older than 7 days
-                break;
-              case "cache":
-                // Cache files can be deleted regardless of age
-                break;
-              case "trash":
-                // Trash can be emptied regardless of age
-                break;
-              default:
-                // For other types, be conservative
-                deleteOptions.maxAge = 1;
-            }
-
-            // Perform actual deletion
-            // Parse multiple paths separated by semicolons
-            const pathsToDelete = result.path
+            const pathsToProcess = result.path
               .split(";")
-              .filter((p) => p.trim().length > 0);
+              .map((p) => p.trim())
+              .filter((p) => p.length > 0);
 
-            for (const pathToDelete of pathsToDelete) {
-              try {
-                const deleteResult = await SystemScanner.safeDelete(
-                  pathToDelete.trim(),
-                  deleteOptions
-                );
-                filesRemoved += deleteResult.filesDeleted;
-                spaceFreed += deleteResult.sizeFreed;
+            allFilePaths.push(...pathsToProcess);
+          }
+        }
 
-                console.log(
-                  `Cleaned ${result.name} at ${pathToDelete}: ${deleteResult.filesDeleted} files, ${deleteResult.sizeFreed} bytes freed`
-                );
-              } catch (error) {
-                console.error(`Failed to clean path ${pathToDelete}:`, error);
-                errors.push(
-                  `Failed to clean ${pathToDelete}: ${error instanceof Error ? error.message : "Unknown error"}`
-                );
+        console.log(
+          `[Enhanced Cleaning] Analyzing ${allFilePaths.length} file paths for application locks...`
+        );
+
+        // Use enhanced cleaning process with application management
+        const cleaningResult = await scanner.performEnhancedCleaning(
+          allFilePaths,
+          {
+            onProgress: (progress: any) => {
+              // Send progress update to renderer
+              event.sender.send("clean-progress", {
+                current: progress.current || 0,
+                total: progress.total || totalCategories,
+                currentCategory: progress.currentStep || "Processing...",
+                filesRemoved: progress.filesDeleted || 0,
+                spaceFreed: progress.spaceFreed || 0,
+              });
+            },
+          }
+        );
+
+        filesRemoved = cleaningResult.totalFilesDeleted || 0;
+        spaceFreed = cleaningResult.totalSpaceFreed || 0;
+
+        if (cleaningResult.errors && cleaningResult.errors.length > 0) {
+          errors.push(...cleaningResult.errors);
+        }
+
+        console.log(
+          `[Enhanced Cleaning] Completed: ${filesRemoved} files removed, ${spaceFreed} bytes freed`
+        );
+      } catch (error) {
+        console.error("[Enhanced Cleaning] Failed:", error);
+
+        // Fallback to original cleaning method if enhanced cleaning fails
+        console.log(
+          "[Enhanced Cleaning] Falling back to original cleaning method..."
+        );
+
+        for (let i = 0; i < scanResults.length; i++) {
+          const result = scanResults[i];
+
+          // Send progress update to renderer
+          event.sender.send("clean-progress", {
+            current: i + 1,
+            total: totalCategories,
+            currentCategory: result.name,
+            filesRemoved,
+            spaceFreed,
+          });
+
+          try {
+            if (result.safe && result.type !== "large") {
+              console.log(
+                `[Fallback] Cleaning ${result.name} at path: ${result.path}`
+              );
+
+              const deleteOptions: { maxAge?: number } = {};
+              switch (result.type) {
+                case "temp":
+                  deleteOptions.maxAge = 1;
+                  break;
+                case "log":
+                  deleteOptions.maxAge = 7;
+                  break;
+                case "cache":
+                case "trash":
+                  break;
+                default:
+                  deleteOptions.maxAge = 1;
+              }
+
+              const pathsToDelete = result.path
+                .split(";")
+                .filter((p) => p.trim().length > 0);
+
+              for (const pathToDelete of pathsToDelete) {
+                try {
+                  const deleteResult = await SystemScanner.safeDelete(
+                    pathToDelete.trim(),
+                    deleteOptions
+                  );
+                  filesRemoved += deleteResult.filesDeleted;
+                  spaceFreed += deleteResult.sizeFreed;
+
+                  console.log(
+                    `[Fallback] Cleaned ${result.name} at ${pathToDelete}: ${deleteResult.filesDeleted} files, ${deleteResult.sizeFreed} bytes freed`
+                  );
+                } catch (error) {
+                  console.error(
+                    `[Fallback] Failed to clean path ${pathToDelete}:`,
+                    error
+                  );
+                  errors.push(
+                    `Failed to clean ${pathToDelete}: ${error instanceof Error ? error.message : "Unknown error"}`
+                  );
+                }
               }
             }
-          } else {
-            console.log(
-              `Skipping ${result.name} - not safe or is large file type`
+          } catch (error) {
+            errors.push(
+              `Failed to clean ${result.name}: ${error instanceof Error ? error.message : "Unknown error"}`
             );
           }
-        } catch (error) {
-          errors.push(
-            `Failed to clean ${result.name}: ${error instanceof Error ? error.message : "Unknown error"}`
-          );
         }
       }
 
@@ -1239,6 +1291,9 @@ class EKDCleanApp {
   private setupPermissionHandlers(): void {
     // Initialize permission IPC handlers
     this.permissionHandlers = new PermissionIPCHandlers();
+
+    // Initialize application management IPC handlers
+    setupApplicationIPCHandlers();
   }
 }
 

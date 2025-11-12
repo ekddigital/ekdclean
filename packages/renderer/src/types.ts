@@ -76,8 +76,38 @@ export interface ActivityItem {
   details?: string;
 }
 
+// Application Management types for renderer
+export interface ApplicationInfo {
+  name: string;
+  processId: number;
+  bundleId?: string;
+  path: string;
+  usingFiles: string[];
+  canForceQuit: boolean;
+  isSystemCritical: boolean;
+}
+
+export interface ClosurePrompt {
+  applications: ApplicationInfo[];
+  affectedPaths: string[];
+  estimatedSpaceToFree: number;
+  message: string;
+  canForceClose: boolean;
+}
+
+export interface ApplicationCloseResult {
+  closed: ApplicationInfo[];
+  failed: ApplicationInfo[];
+}
+
+export interface ApplicationVerificationResult {
+  stillRunning: ApplicationInfo[];
+  closed: ApplicationInfo[];
+}
+
 // Electron API types
 export interface ElectronAPI {
+  // Core system methods
   getSystemInfo: () => Promise<SystemInfo>;
   scanSystem: () => Promise<ScanResult[]>;
   scanSpecific: (scannerId: string) => Promise<ScanResult[]>;
@@ -97,6 +127,9 @@ export interface ElectronAPI {
   requestPermissions: () => Promise<boolean>;
   showPermissionGuidance: () => Promise<boolean>;
   openSystemPreferences: () => Promise<boolean>;
+
+  // Generic invoke method for IPC
+  invoke: (channel: string, ...args: any[]) => Promise<any>;
 
   // IPC event methods for progress tracking
   onCleanProgress: (

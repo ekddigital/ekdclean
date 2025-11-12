@@ -16,6 +16,7 @@ import { Logger } from "../logger";
 import { SmartCacheDiscovery } from "../scanner-core/SmartCacheDiscovery";
 import { UserExclusionsManager } from "../safety/user-exclusions";
 import { PermissionManager } from "../permissions/PermissionManager";
+import { ApplicationManager } from "../app-management/ApplicationManager";
 
 export class SystemJunkScanner extends BaseScanner {
   readonly id = "system-junk";
@@ -313,7 +314,7 @@ export class SystemJunkScanner extends BaseScanner {
   ): Promise<CleanResult> {
     Logger.info(
       this.id,
-      `🧹 STARTING CLEAN: ${items.length} system junk items`,
+      `🧹 STARTING ENHANCED CLEAN: ${items.length} system junk items`,
       {
         quarantine: options.quarantine,
       }
@@ -321,51 +322,380 @@ export class SystemJunkScanner extends BaseScanner {
 
     const paths = items.map((item) => item.path);
 
-    // Log what we're about to clean for debugging
-    for (let i = 0; i < Math.min(paths.length, 10); i++) {
-      const item = items[i];
+    // ✅ STEP 1: Analyze which applications are blocking file deletion
+    const appManager = ApplicationManager.getInstance();
+    const closurePrompt = await appManager.analyzeFileLocks(paths);
+
+    let totalSpaceFreed = 0;
+    let totalFilesDeleted = 0;
+    let allErrors: string[] = [];
+
+    if (closurePrompt) {
+      Logger.info(this.id, `🚨 APPLICATIONS BLOCKING CLEANUP:`, {
+        appsCount: closurePrompt.applications.length,
+        estimatedSpaceMB: (
+          closurePrompt.estimatedSpaceToFree /
+          1024 /
+          1024
+        ).toFixed(1),
+        apps: closurePrompt.applications.map((app) => app.name),
+      });
+
+      // ✅ REQUEST USER CONSENT THROUGH UI INSTEAD OF AUTO-CLOSING
       Logger.info(
         this.id,
-        `📂 Will clean: ${item.path} (${(item.sizeBytes / 1024 / 1024).toFixed(1)}MB)`
+        `💬 REQUESTING USER CONSENT FOR APPLICATION CLOSURE`
       );
-    }
-    if (paths.length > 10) {
-      Logger.info(this.id, `... and ${paths.length - 10} more items`);
-    }
+      Logger.info(this.id, `🎯 User Prompt: ${closurePrompt.message}`);
 
-    const result = await FileOperations.safeDelete(paths, this.id, {
-      quarantine: options.quarantine,
-      dryRun: false,
-      maxAge: 0, // ✅ FIX: Remove age restriction for cache files
-    });
+      // Instead of automatically closing apps, we need to:
+      // 1. Send the closure prompt to the UI via IPC
+      // 2. Show the ApplicationBlockingModal
+      // 3. Wait for user decision
+      // 4. Only proceed based on user choice
 
-    Logger.info(this.id, "🏁 CLEAN COMPLETE", {
-      filesDeleted: result.filesDeleted,
-      spaceFreedMB: (result.spaceFreed / 1024 / 1024).toFixed(1),
-      errors: result.errors.length,
-      errorDetails: result.errors.length > 0 ? result.errors.slice(0, 5) : [],
-    });
+      // For now, we'll add detailed info to errors to inform the user
+      // The actual UI integration should be handled by the cleaning coordinator
+      const appNames = closurePrompt.applications
+        .map((app) => app.name)
+        .join(", ");
+      const spaceMB = (
+        closurePrompt.estimatedSpaceToFree /
+        1024 /
+        1024
+      ).toFixed(1);
 
-    // Log errors for debugging
-    if (result.errors.length > 0) {
-      Logger.error(this.id, "❌ Cleaning errors encountered:", {
-        firstFewErrors: result.errors.slice(0, 3),
-        totalErrors: result.errors.length,
+      allErrors.push(
+        `⚠️ Applications are blocking cleanup: ${appNames}. ` +
+          `Close these applications to free up ${spaceMB} MB of space. ` +
+          `Files currently in use cannot be cleaned.`
+      );
+
+      // Mark the blocked files by adding them to errors
+      for (const app of closurePrompt.applications) {
+        for (const filePath of app.usingFiles) {
+          allErrors.push(`File blocked by ${app.name}: ${filePath}`);
+        }
+      }
+
+      Logger.warn(this.id, `🛑 CLEANING BLOCKED - User intervention required`, {
+        blockingApps: closurePrompt.applications.length,
+        blockedPaths: closurePrompt.affectedPaths.length,
+        recommendation: "Show ApplicationBlockingModal to user",
       });
     }
 
+    // ✅ STEP 2: Attempt cleaning with enhanced error handling
+    Logger.info(
+      this.id,
+      `🗑️ Proceeding with file deletion (${paths.length} paths)`
+    );
+
+    // Group paths by category for better error reporting
+    const pathsByCategory = this.groupPathsByCategory(items);
+
+    for (const [category, categoryItems] of pathsByCategory.entries()) {
+      const categoryPaths = categoryItems.map((item) => item.path);
+
+      Logger.info(
+        this.id,
+        `🧹 Cleaning ${category}: ${categoryPaths.length} items`
+      );
+
+      const result = await FileOperations.safeDelete(categoryPaths, category, {
+        quarantine: options.quarantine,
+        dryRun: false,
+        maxAge: 0, // Remove age restrictions for cache cleaning
+      });
+
+      totalFilesDeleted += result.filesDeleted;
+      totalSpaceFreed += result.spaceFreed;
+      allErrors.push(...result.errors);
+
+      // Enhanced error reporting by category
+      if (result.errors.length > 0) {
+        Logger.warn(this.id, `⚠️ Errors in ${category}:`, {
+          errorsCount: result.errors.length,
+          sampleErrors: result.errors.slice(0, 3),
+        });
+      } else {
+        Logger.info(this.id, `✅ ${category} cleaned successfully:`, {
+          files: result.filesDeleted,
+          spaceMB: (result.spaceFreed / 1024 / 1024).toFixed(1),
+        });
+      }
+    }
+
+    // ✅ STEP 3: Analyze remaining issues and provide guidance
+    await this.analyzeCleaningResults(allErrors, paths);
+
+    Logger.info(this.id, "🏁 ENHANCED CLEAN COMPLETE", {
+      totalFilesDeleted,
+      totalSpaceFreedMB: (totalSpaceFreed / 1024 / 1024).toFixed(1),
+      totalErrors: allErrors.length,
+      categoriesProcessed: pathsByCategory.size,
+    });
+
     return {
-      success: result.success,
-      itemsCleaned: result.filesDeleted,
-      spaceFreed: result.spaceFreed,
-      errors: result.errors,
+      success: allErrors.length === 0,
+      itemsCleaned: totalFilesDeleted,
+      spaceFreed: totalSpaceFreed,
+      errors: allErrors,
       quarantined: options.quarantine,
     };
+  }
+
+  /**
+   * Group scan items by category for organized cleaning
+   */
+  private groupPathsByCategory(items: ScanItem[]): Map<string, ScanItem[]> {
+    const grouped = new Map<string, ScanItem[]>();
+
+    for (const item of items) {
+      const category = item.category || "unknown";
+      if (!grouped.has(category)) {
+        grouped.set(category, []);
+      }
+      grouped.get(category)!.push(item);
+    }
+
+    return grouped;
+  }
+
+  /**
+   * Analyze cleaning results and provide user guidance
+   */
+  private async analyzeCleaningResults(
+    errors: string[],
+    originalPaths: string[]
+  ): Promise<void> {
+    if (errors.length === 0) {
+      Logger.info(this.id, "🎉 All files cleaned successfully!");
+      return;
+    }
+
+    // Categorize errors
+    const permissionErrors = errors.filter(
+      (err) =>
+        err.includes("EACCES") ||
+        err.includes("EPERM") ||
+        err.includes("permission denied")
+    );
+
+    const inUseErrors = errors.filter(
+      (err) => err.includes("EBUSY") || err.includes("resource busy")
+    );
+
+    const notFoundErrors = errors.filter(
+      (err) => err.includes("ENOENT") || err.includes("no such file")
+    );
+
+    // Provide specific guidance
+    if (permissionErrors.length > 0) {
+      Logger.warn(
+        this.id,
+        `🔐 ${permissionErrors.length} permission-related errors detected`
+      );
+      Logger.info(
+        this.id,
+        "💡 SUGGESTION: Grant Full Disk Access to EKD Clean in System Settings > Security & Privacy"
+      );
+    }
+
+    if (inUseErrors.length > 0) {
+      Logger.warn(
+        this.id,
+        `📱 ${inUseErrors.length} files are currently in use by applications`
+      );
+      Logger.info(
+        this.id,
+        "💡 SUGGESTION: Close related applications and try cleaning again"
+      );
+    }
+
+    if (notFoundErrors.length > 0) {
+      Logger.info(
+        this.id,
+        `✅ ${notFoundErrors.length} files were already cleaned (no longer exist)`
+      );
+    }
+
+    // Calculate success rate
+    const totalAttempted = originalPaths.length;
+    const failed = errors.length - notFoundErrors.length; // Don't count "already deleted" as failures
+    const successRate = ((totalAttempted - failed) / totalAttempted) * 100;
+
+    Logger.info(this.id, `📊 Cleaning Summary:`, {
+      attempted: totalAttempted,
+      succeeded: totalAttempted - failed,
+      failed: failed,
+      successRate: `${successRate.toFixed(1)}%`,
+    });
   }
 
   async restore(quarantineId: string): Promise<boolean> {
     Logger.info(this.id, `Restoring quarantined item: ${quarantineId}`);
     const { QuarantineManager } = await import("../file-ops/quarantine");
     return await QuarantineManager.restoreFile(quarantineId);
+  }
+
+  /**
+   * Enhanced cleaning process with application management
+   */
+  async performEnhancedCleaning(
+    filePaths: string[],
+    options: {
+      onProgress?: (progress: {
+        current?: number;
+        total?: number;
+        currentStep?: string;
+        filesDeleted?: number;
+        spaceFreed?: number;
+      }) => void;
+    } = {}
+  ): Promise<{
+    totalFilesDeleted: number;
+    totalSpaceFreed: number;
+    errors: string[];
+    applicationsClosed: number;
+  }> {
+    const { ApplicationManager } = await import(
+      "../app-management/ApplicationManager"
+    );
+    const { FileOperations } = await import("../file-ops/operations");
+
+    const applicationManager = new ApplicationManager();
+    let totalFilesDeleted = 0;
+    let totalSpaceFreed = 0;
+    let applicationsClosed = 0;
+    const errors: string[] = [];
+
+    try {
+      Logger.info(
+        this.id,
+        `Starting enhanced cleaning of ${filePaths.length} file paths`
+      );
+
+      options.onProgress?.({
+        current: 0,
+        total: filePaths.length,
+        currentStep: "Analyzing application locks...",
+        filesDeleted: 0,
+        spaceFreed: 0,
+      });
+
+      // Step 1: Analyze file locks
+      const lockAnalysis = await applicationManager.analyzeFileLocks(filePaths);
+
+      if (
+        lockAnalysis &&
+        lockAnalysis.applications &&
+        lockAnalysis.applications.length > 0
+      ) {
+        Logger.info(
+          this.id,
+          `Found ${lockAnalysis.applications.length} applications blocking cleanup:`
+        );
+        lockAnalysis.applications.forEach((app: any) => {
+          Logger.info(
+            this.id,
+            `- ${app.name} (PID: ${app.processId}) using ${app.usingFiles.length} files`
+          );
+        });
+
+        // ✅ PROPER USER CONSENT FLOW - DO NOT AUTO-CLOSE
+        Logger.warn(
+          this.id,
+          `🛑 ENHANCED CLEANING BLOCKED - Applications blocking cleanup`
+        );
+        Logger.info(
+          this.id,
+          `💡 RECOMMENDATION: Show ApplicationBlockingModal to request user consent`
+        );
+
+        // Add descriptive errors instead of auto-closing
+        const appNames = lockAnalysis.applications
+          .map((app: any) => app.name)
+          .join(", ");
+        const spaceMB = (
+          lockAnalysis.estimatedSpaceToFree /
+          1024 /
+          1024
+        ).toFixed(1);
+
+        errors.push(
+          `⚠️ Enhanced cleaning blocked by applications: ${appNames}. ` +
+            `Close these applications to free up ${spaceMB} MB. ` +
+            `User consent required before closing any applications.`
+        );
+
+        // Mark each blocked file
+        for (const app of lockAnalysis.applications) {
+          for (const filePath of app.usingFiles) {
+            errors.push(`File blocked by ${app.name}: ${filePath}`);
+          }
+        }
+
+        // Skip the automatic closure - this should be handled by UI
+        Logger.info(
+          this.id,
+          `⏭️ Skipping automatic application closure - user consent required`
+        );
+      }
+
+      // Step 4: Proceed with actual file deletion using the existing safeDelete method
+      options.onProgress?.({
+        current: 2,
+        total: 4,
+        currentStep: "Cleaning files...",
+        filesDeleted: totalFilesDeleted,
+        spaceFreed: totalSpaceFreed,
+      });
+
+      const deleteResult = await FileOperations.safeDelete(
+        filePaths,
+        "Enhanced Clean",
+        {
+          quarantine: true,
+          backup: false,
+        }
+      );
+
+      totalFilesDeleted = deleteResult.filesDeleted;
+      totalSpaceFreed = deleteResult.spaceFreed;
+      errors.push(...deleteResult.errors);
+
+      // Step 5: Final summary
+      options.onProgress?.({
+        current: 4,
+        total: 4,
+        currentStep: "Cleanup complete",
+        filesDeleted: totalFilesDeleted,
+        spaceFreed: totalSpaceFreed,
+      });
+
+      Logger.info(
+        this.id,
+        `Enhanced cleaning completed: ${totalFilesDeleted} files deleted, ${totalSpaceFreed} bytes freed, ${applicationsClosed} apps closed, ${errors.length} errors`
+      );
+
+      return {
+        totalFilesDeleted,
+        totalSpaceFreed,
+        errors,
+        applicationsClosed,
+      };
+    } catch (error: any) {
+      const errorMsg = error instanceof Error ? error.message : "Unknown error";
+      Logger.error(this.id, "Enhanced cleaning failed:", { error: errorMsg });
+      errors.push(`Enhanced cleaning failed: ${errorMsg}`);
+
+      return {
+        totalFilesDeleted,
+        totalSpaceFreed,
+        errors,
+        applicationsClosed,
+      };
+    }
   }
 }

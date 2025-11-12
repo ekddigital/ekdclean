@@ -132,13 +132,35 @@ export class FileOperations {
         } else {
           // Direct deletion (use with caution)
           if (stats.isFile()) {
-            await fs.unlink(path);
-            result.filesDeleted++;
-            result.spaceFreed += stats.size;
-            Logger.info(
-              "FileOperations",
-              `🗑️ Deleted file: ${path} (${sizeMB}MB)`
-            );
+            try {
+              await fs.unlink(path);
+              result.filesDeleted++;
+              result.spaceFreed += stats.size;
+              Logger.info(
+                "FileOperations",
+                `🗑️ Deleted file: ${path} (${sizeMB}MB)`
+              );
+            } catch (deleteError) {
+              // Handle permission errors with better user guidance
+              if (deleteError instanceof Error) {
+                if (
+                  deleteError.message.includes("EACCES") ||
+                  deleteError.message.includes("EPERM")
+                ) {
+                  const errorMsg = `Permission denied: ${path} (Try closing applications using this file or granting Full Disk Access)`;
+                  result.errors.push(errorMsg);
+                  Logger.warn("FileOperations", `🔐 ${errorMsg}`);
+                } else if (deleteError.message.includes("EBUSY")) {
+                  const errorMsg = `File busy: ${path} (File is currently in use by an application)`;
+                  result.errors.push(errorMsg);
+                  Logger.warn("FileOperations", `📱 ${errorMsg}`);
+                } else {
+                  const errorMsg = `Failed to delete ${path}: ${deleteError.message}`;
+                  result.errors.push(errorMsg);
+                  Logger.error("FileOperations", `❌ ${errorMsg}`);
+                }
+              }
+            }
           } else if (stats.isDirectory()) {
             // Get directory size before deletion
             const dirSize = await this.getDirectorySize(path);
@@ -149,8 +171,8 @@ export class FileOperations {
               `📂 Deleting directory: ${path} (${dirSizeMB}MB)`
             );
 
-            // Recursively delete directory
-            const dirResult = await this.deleteDirectory(
+            // Enhanced directory deletion with multiple strategies
+            const dirResult = await this.deleteDirectoryEnhanced(
               path,
               category,
               options
@@ -183,7 +205,59 @@ export class FileOperations {
     return result;
   }
 
-  private static async deleteDirectory(
+  private static async deleteDirectoryEnhanced(
+    dirPath: string,
+    category: string,
+    options: DeleteOptions
+  ): Promise<DeleteResult> {
+    const result: DeleteResult = {
+      success: true,
+      filesDeleted: 0,
+      spaceFreed: 0,
+      errors: [],
+      quarantineIds: [],
+    };
+
+    try {
+      Logger.debug(
+        "FileOperations",
+        `📂 Enhanced processing directory: ${dirPath}`
+      );
+
+      // Strategy 1: Try native recursive removal first (fastest)
+      try {
+        const size = await this.getDirectorySize(dirPath);
+
+        await fs.rm(dirPath, { recursive: true, force: true });
+
+        result.filesDeleted = 1;
+        result.spaceFreed = size;
+        Logger.info("FileOperations", `🔥 Fast removed directory: ${dirPath}`);
+        return result;
+      } catch (fastError) {
+        Logger.debug(
+          "FileOperations",
+          `Fast removal failed, trying manual: ${dirPath}`
+        );
+      }
+
+      // Strategy 2: Manual file-by-file removal with error handling
+      const manualResult = await this.deleteDirectoryManual(
+        dirPath,
+        category,
+        options
+      );
+      return manualResult;
+    } catch (error) {
+      const errorMsg = `Enhanced deletion failed for ${dirPath}: ${error instanceof Error ? error.message : "Unknown"}`;
+      result.errors.push(errorMsg);
+      Logger.error("FileOperations", `❌ ${errorMsg}`);
+    }
+
+    return result;
+  }
+
+  private static async deleteDirectoryManual(
     dirPath: string,
     category: string,
     options: DeleteOptions
@@ -208,7 +282,7 @@ export class FileOperations {
 
         try {
           if (entry.isDirectory()) {
-            const subResult = await this.deleteDirectory(
+            const subResult = await this.deleteDirectoryManual(
               fullPath,
               category,
               options
