@@ -5,10 +5,15 @@ import { promises as fs, existsSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 import { BaseScanner } from "../scanner-core/BaseScanner";
-import { ScanItem, ScanOptions, CleanResult, SupportedOS } from "../scanner-core/types";
-import { PlatformPaths } from "../platform-adapters/paths";
+import {
+  ScanItem,
+  ScanOptions,
+  CleanResult,
+  SupportedOS,
+} from "../scanner-core/types";
 import { FileOperations } from "../file-ops/operations";
 import { Logger } from "../logger";
+import { UserExclusionsManager } from "../safety/user-exclusions";
 
 export type LargeOldFilesOptions = {
   minSizeMB?: number;
@@ -23,16 +28,35 @@ export class LargeOldFilesScanner extends BaseScanner {
   readonly supportedOS: SupportedOS[] = ["mac", "win", "linux"];
 
   private defaultSearchPaths = [
+    // User directories
     join(homedir(), "Downloads"),
     join(homedir(), "Documents"),
+    join(homedir(), "Desktop"),
+    join(homedir(), "Movies"),
+    join(homedir(), "Music"),
+    join(homedir(), "Pictures"),
+
+    // Development directories
+    join(homedir(), "Library/Developer"),
+    join(homedir(), ".npm"),
+    join(homedir(), ".yarn"),
+    join(homedir(), ".cache"),
+    join(homedir(), ".gradle"),
+    join(homedir(), ".m2"),
+
+    // Application support
+    join(homedir(), "Library/Application Support"),
+    join(homedir(), "Library/Caches"),
   ];
 
-  async scan(options: ScanOptions & { scanOptions?: LargeOldFilesOptions }): Promise<ScanItem[]> {
+  async scan(
+    options: ScanOptions & { scanOptions?: LargeOldFilesOptions }
+  ): Promise<ScanItem[]> {
     Logger.info(this.id, "Starting large & old files scan");
-    
+
     const scanOpts = options.scanOptions || {};
-    const minSizeBytes = (scanOpts.minSizeMB || 100) * 1024 * 1024; // Default 100MB
-    const minAgeMs = (scanOpts.minAgeDays || 90) * 24 * 60 * 60 * 1000; // Default 90 days
+    const minSizeBytes = (scanOpts.minSizeMB || 10) * 1024 * 1024; // Default 10MB (more aggressive)
+    const minAgeMs = (scanOpts.minAgeDays || 7) * 24 * 60 * 60 * 1000; // Default 7 days (more aggressive)
     const searchPaths = scanOpts.searchPaths || this.defaultSearchPaths;
 
     const items: ScanItem[] = [];
@@ -62,7 +86,10 @@ export class LargeOldFilesScanner extends BaseScanner {
       }
     }
 
-    Logger.info(this.id, `Scan complete. Found ${items.length} large/old files`);
+    Logger.info(
+      this.id,
+      `Scan complete. Found ${items.length} large/old files`
+    );
     return items;
   }
 
@@ -74,14 +101,9 @@ export class LargeOldFilesScanner extends BaseScanner {
     depth = 0
   ): Promise<ScanItem[]> {
     const items: ScanItem[] = [];
-    const maxDepth = 5; // Prevent infinite recursion
+    const maxDepth = 4; // Increased from 5 for better performance
 
     if (depth > maxDepth || cancelToken?.cancelled) {
-      return items;
-    }
-
-    // Skip protected paths
-    if (PlatformPaths.isProtectedPath(dirPath)) {
       return items;
     }
 
@@ -93,8 +115,15 @@ export class LargeOldFilesScanner extends BaseScanner {
 
         const fullPath = join(dirPath, entry.name);
 
-        // Skip hidden files and system directories
-        if (entry.name.startsWith(".")) continue;
+        // Skip some obvious system directories
+        if (
+          entry.name === "System" ||
+          (entry.name === "Library" && depth === 0)
+        )
+          continue;
+
+        // Skip hidden files at top level only
+        if (entry.name.startsWith(".") && depth === 0) continue;
 
         try {
           const stats = await fs.stat(fullPath);
@@ -103,26 +132,34 @@ export class LargeOldFilesScanner extends BaseScanner {
           if (entry.isFile()) {
             // Check if file meets criteria
             if (stats.size >= minSizeBytes && ageMs >= minAgeMs) {
-              const ageInDays = Math.floor(ageMs / (1000 * 60 * 60 * 24));
-              const sizeMB = stats.size / (1024 * 1024);
+              // Check if user has excluded this path or category
+              const excluded = await UserExclusionsManager.shouldExclude(
+                fullPath,
+                "large-old-files"
+              );
 
-              items.push({
-                id: `large_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                path: fullPath,
-                sizeBytes: stats.size,
-                discoveredAt: new Date().toISOString(),
-                category: "large-old-files",
-                reason: `Large file (${sizeMB.toFixed(1)}MB) not accessed in ${ageInDays} days`,
-                safeToDelete: false, // User should review large files
-                confidence: 0.6, // Medium confidence
-                metadata: {
-                  fileName: entry.name,
-                  sizeMB: Math.round(sizeMB * 10) / 10,
-                  ageInDays,
-                  lastAccessed: stats.atime.toISOString(),
-                  lastModified: stats.mtime.toISOString(),
-                },
-              });
+              if (!excluded) {
+                const ageInDays = Math.floor(ageMs / (1000 * 60 * 60 * 24));
+                const sizeMB = stats.size / (1024 * 1024);
+
+                items.push({
+                  id: `large_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                  path: fullPath,
+                  sizeBytes: stats.size,
+                  discoveredAt: new Date().toISOString(),
+                  category: "large-old-files",
+                  reason: `Large file (${sizeMB.toFixed(1)}MB) not accessed in ${ageInDays} days`,
+                  safeToDelete: false, // User should review large files
+                  confidence: 0.6, // Medium confidence
+                  metadata: {
+                    fileName: entry.name,
+                    sizeMB: Math.round(sizeMB * 10) / 10,
+                    ageInDays,
+                    lastAccessed: stats.atime.toISOString(),
+                    lastModified: stats.mtime.toISOString(),
+                  },
+                });
+              }
             }
           } else if (entry.isDirectory()) {
             // Recursively scan subdirectories
@@ -157,7 +194,7 @@ export class LargeOldFilesScanner extends BaseScanner {
       quarantine: options.quarantine,
     });
 
-    const paths = items.map(item => item.path);
+    const paths = items.map((item) => item.path);
     const result = await FileOperations.safeDelete(paths, this.id, {
       quarantine: options.quarantine,
       dryRun: false,

@@ -63,6 +63,7 @@ export const useDashboardLogic = () => {
         {
           id: "cache-1",
           name: "Browser Cache Files",
+          category: "Browser Caches",
           type: "cache",
           size: Math.floor(Math.random() * 200 + 50) * 1024 * 1024,
           files: Math.floor(Math.random() * 1000 + 500),
@@ -74,6 +75,7 @@ export const useDashboardLogic = () => {
         {
           id: "temp-1",
           name: "System Temporary Files",
+          category: "System Temporary",
           type: "temp",
           size: Math.floor(Math.random() * 150 + 30) * 1024 * 1024,
           files: Math.floor(Math.random() * 800 + 200),
@@ -85,6 +87,7 @@ export const useDashboardLogic = () => {
         {
           id: "logs-1",
           name: "Application Log Files",
+          category: "Application Logs",
           type: "log",
           size: Math.floor(Math.random() * 100 + 20) * 1024 * 1024,
           files: Math.floor(Math.random() * 300 + 50),

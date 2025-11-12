@@ -5,10 +5,17 @@ import { promises as fs, existsSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 import { BaseScanner } from "../scanner-core/BaseScanner";
-import { ScanItem, ScanOptions, CleanResult, SupportedOS } from "../scanner-core/types";
+import {
+  ScanItem,
+  ScanOptions,
+  CleanResult,
+  SupportedOS,
+} from "../scanner-core/types";
 import { PlatformPaths } from "../platform-adapters/paths";
 import { FileOperations } from "../file-ops/operations";
 import { Logger } from "../logger";
+import { UserExclusionsManager } from "../safety/user-exclusions";
+import { PermissionManager } from "../permissions/PermissionManager";
 
 export class PrivacyScanner extends BaseScanner {
   readonly id = "privacy";
@@ -18,19 +25,44 @@ export class PrivacyScanner extends BaseScanner {
 
   async scan(options: ScanOptions): Promise<ScanItem[]> {
     Logger.info(this.id, "Starting privacy scan");
+
+    // Check if privacy scanning is enabled by user
+    const privacyDisabled = await UserExclusionsManager.shouldExclude(
+      "",
+      "privacy"
+    );
+    if (privacyDisabled) {
+      Logger.info(this.id, "Privacy scanning disabled by user preferences");
+      return [];
+    }
+
+    const permissionManager = PermissionManager.getInstance();
     const items: ScanItem[] = [];
 
-    // Scan browser caches
-    const browserItems = await this.scanBrowserData(options);
-    items.push(...browserItems);
+    try {
+      // Scan browser caches
+      const browserItems = await this.scanBrowserData(options);
+      items.push(...browserItems);
 
-    // Scan application logs
-    const logItems = await this.scanPrivacyLogs(options);
-    items.push(...logItems);
+      // Scan application logs
+      const logItems = await this.scanPrivacyLogs(options);
+      items.push(...logItems);
 
-    // Scan recent files lists
-    const recentItems = await this.scanRecentFiles(options);
-    items.push(...recentItems);
+      // Scan recent files lists
+      const recentItems = await this.scanRecentFiles(options);
+      items.push(...recentItems);
+    } catch (error) {
+      // Handle permission errors for privacy data
+      if (error instanceof Error && error.message.includes("EPERM")) {
+        await permissionManager.handlePermissionError(
+          "privacy data",
+          error as NodeJS.ErrnoException
+        );
+      }
+      Logger.error(this.id, "Privacy scan failed", {
+        error: error instanceof Error ? error.message : "Unknown",
+      });
+    }
 
     Logger.info(this.id, `Privacy scan complete. Found ${items.length} items`);
     return items;
@@ -51,7 +83,10 @@ export class PrivacyScanner extends BaseScanner {
         items.push(...cacheItems);
 
         // Scan for history/cookies (but exclude passwords)
-        const historyItems = await this.scanBrowserHistory(browserPath, options);
+        const historyItems = await this.scanBrowserHistory(
+          browserPath,
+          options
+        );
         items.push(...historyItems);
       } catch (error) {
         Logger.debug(this.id, `Failed to scan browser path: ${browserPath}`);
@@ -122,7 +157,7 @@ export class PrivacyScanner extends BaseScanner {
 
         try {
           const stats = await fs.stat(historyPath);
-          
+
           items.push({
             id: `browser_history_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             path: historyPath,
@@ -195,7 +230,8 @@ export class PrivacyScanner extends BaseScanner {
         try {
           if (entry.isFile() && entry.name.endsWith(".log")) {
             const stats = await fs.stat(fullPath);
-            const ageInDays = (Date.now() - stats.mtime.getTime()) / (1000 * 60 * 60 * 24);
+            const ageInDays =
+              (Date.now() - stats.mtime.getTime()) / (1000 * 60 * 60 * 24);
 
             // Only report logs older than 7 days
             if (ageInDays >= 7) {
@@ -215,7 +251,11 @@ export class PrivacyScanner extends BaseScanner {
               });
             }
           } else if (entry.isDirectory() && !entry.name.startsWith(".")) {
-            const subItems = await this.scanLogDirectory(fullPath, options, depth + 1);
+            const subItems = await this.scanLogDirectory(
+              fullPath,
+              options,
+              depth + 1
+            );
             items.push(...subItems);
           }
         } catch (error) {
@@ -246,7 +286,7 @@ export class PrivacyScanner extends BaseScanner {
         if (!existsSync(recentPath)) continue;
 
         const stats = await fs.stat(recentPath);
-        
+
         if (stats.isFile()) {
           items.push({
             id: `recent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -295,7 +335,7 @@ export class PrivacyScanner extends BaseScanner {
       quarantine: options.quarantine,
     });
 
-    const paths = items.map(item => item.path);
+    const paths = items.map((item) => item.path);
     const result = await FileOperations.safeDelete(paths, this.id, {
       quarantine: options.quarantine,
       dryRun: false,

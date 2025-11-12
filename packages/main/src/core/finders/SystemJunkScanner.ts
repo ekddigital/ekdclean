@@ -1,110 +1,166 @@
 // EKD Clean - System Junk Scanner
 // Built by EKD Digital
 
-import { promises as fs, existsSync } from "fs";
+import { existsSync, promises as fs } from "fs";
 import { join } from "path";
-import { homedir, tmpdir } from "os";
+import { tmpdir, homedir } from "os";
 import { BaseScanner } from "../scanner-core/BaseScanner";
-import { ScanItem, ScanOptions, CleanResult, SupportedOS } from "../scanner-core/types";
-import { PlatformPaths } from "../platform-adapters/paths";
+import {
+  ScanItem,
+  ScanOptions,
+  CleanResult,
+  SupportedOS,
+} from "../scanner-core/types";
 import { FileOperations } from "../file-ops/operations";
 import { Logger } from "../logger";
+import { SmartCacheDiscovery } from "../scanner-core/SmartCacheDiscovery";
+import { UserExclusionsManager } from "../safety/user-exclusions";
+import { PermissionManager } from "../permissions/PermissionManager";
 
 export class SystemJunkScanner extends BaseScanner {
   readonly id = "system-junk";
   readonly name = "System Junk";
-  readonly description = "Clean system caches, temp files, and application junk";
+  readonly description =
+    "Clean system caches, temp files, and application junk";
   readonly supportedOS: SupportedOS[] = ["mac", "win", "linux"];
 
   async scan(options: ScanOptions): Promise<ScanItem[]> {
     Logger.info(this.id, "Starting system junk scan");
-    const items: ScanItem[] = [];
 
-    // Scan application caches
-    const cacheItems = await this.scanApplicationCaches(options);
-    items.push(...cacheItems);
+    // Check permissions before scanning
+    const permissionManager = PermissionManager.getInstance();
+    const permissionSummary = await permissionManager.getPermissionSummary();
 
-    // Scan system temp files
-    const tempItems = await this.scanTempFiles(options);
-    items.push(...tempItems);
+    if (!permissionSummary.hasRequiredPermissions) {
+      Logger.warn(
+        this.id,
+        "Missing required permissions for thorough scanning",
+        {
+          missing: permissionSummary.missingCount,
+          total: permissionSummary.totalCount,
+        }
+      );
 
-    // Scan development artifacts
-    const devItems = await this.scanDevelopmentArtifacts(options);
-    items.push(...devItems);
+      // Try to request permissions
+      if (await permissionManager.shouldRequestPermissions()) {
+        Logger.info(this.id, "🚨 REQUESTING PERMISSIONS FROM USER 🚨");
+        const permissionGranted = await permissionManager.requestPermissions();
+        Logger.info(this.id, "Permission request result", {
+          granted: permissionGranted,
+        });
 
-    Logger.info(this.id, `System junk scan complete. Found ${items.length} items`);
-    return items;
-  }
-
-  private async scanApplicationCaches(options: ScanOptions): Promise<ScanItem[]> {
-    const items: ScanItem[] = [];
-    const cachePaths = PlatformPaths.getCachePaths();
-
-    for (const cachePath of cachePaths) {
-      if (options.cancelToken?.cancelled) break;
-
-      try {
-        if (!existsSync(cachePath)) continue;
-
-        const cacheItems = await this.scanCacheDirectory(cachePath, options, 0);
-        items.push(...cacheItems);
-      } catch (error) {
-        Logger.debug(this.id, `Failed to scan cache path: ${cachePath}`);
+        if (!permissionGranted) {
+          Logger.warn(this.id, "User declined or cancelled permission request");
+        }
+      } else {
+        Logger.info(
+          this.id,
+          "Permission manager says we should not request permissions"
+        );
       }
     }
 
+    const items: ScanItem[] = [];
+
+    try {
+      // Scan application caches
+      const cacheItems = await this.scanApplicationCaches(options);
+      items.push(...cacheItems);
+
+      // Scan system temp files
+      const tempItems = await this.scanTempFiles(options);
+      items.push(...tempItems);
+
+      // Scan development artifacts
+      const devItems = await this.scanDevelopmentArtifacts(options);
+      items.push(...devItems);
+    } catch (error) {
+      // Handle permission errors gracefully
+      if (
+        error instanceof Error &&
+        (error.message.includes("EPERM") || error.message.includes("EACCES"))
+      ) {
+        await permissionManager.handlePermissionError(
+          "system scan",
+          error as NodeJS.ErrnoException
+        );
+      }
+      Logger.error(this.id, "Scan failed", {
+        error: error instanceof Error ? error.message : "Unknown",
+      });
+    }
+
+    Logger.info(
+      this.id,
+      `System junk scan complete. Found ${items.length} items`
+    );
     return items;
   }
 
-  private async scanCacheDirectory(
-    dirPath: string,
-    options: ScanOptions,
-    depth: number
+  private async scanApplicationCaches(
+    options: ScanOptions
   ): Promise<ScanItem[]> {
     const items: ScanItem[] = [];
-    const maxDepth = 2;
 
-    if (depth > maxDepth || options.cancelToken?.cancelled) {
-      return items;
-    }
+    // USE SMART DISCOVERY SYSTEM - automatically finds caches!
+    Logger.info(this.id, "Using smart cache discovery system");
 
     try {
-      const entries = await fs.readdir(dirPath, { withFileTypes: true });
+      const discoveries = await SmartCacheDiscovery.discoverCaches(0.1); // Min 0.1MB (100KB)
 
-      for (const entry of entries) {
+      Logger.info(
+        this.id,
+        `Smart discovery found ${discoveries.length} cache locations, total: ${discoveries.reduce((sum, d) => sum + d.sizeBytes, 0) / 1024 / 1024} MB`
+      );
+
+      // Debug: Log each discovery for troubleshooting
+      discoveries.forEach((discovery) => {
+        Logger.debug(
+          this.id,
+          `Found cache: ${discovery.path} (${(discovery.sizeBytes / 1024 / 1024).toFixed(1)}MB)`
+        );
+      });
+
+      for (const discovery of discoveries) {
         if (options.cancelToken?.cancelled) break;
 
-        const fullPath = join(dirPath, entry.name);
+        // Check if user has excluded this path or category
+        const excluded = await UserExclusionsManager.shouldExclude(
+          discovery.path,
+          discovery.category
+        );
 
-        try {
-          if (entry.isDirectory()) {
-            // Check if this is a sizable cache directory
-            const size = await FileOperations.getDirectorySize(fullPath);
-            
-            // Report directories over 10MB
-            if (size > 10 * 1024 * 1024) {
-              items.push({
-                id: `cache_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                path: fullPath,
-                sizeBytes: size,
-                discoveredAt: new Date().toISOString(),
-                category: "app-cache",
-                reason: `Application cache (${(size / 1024 / 1024).toFixed(1)}MB)`,
-                safeToDelete: true,
-                confidence: 0.9,
-                metadata: {
-                  dirName: entry.name,
-                  sizeMB: Math.round(size / 1024 / 1024 * 10) / 10,
-                },
-              });
-            }
-          }
-        } catch (error) {
-          Logger.debug(this.id, `Failed to process: ${fullPath}`);
+        if (excluded) {
+          Logger.debug(this.id, `Skipping excluded path: ${discovery.path}`);
+          continue;
+        }
+
+        // Convert discovery to ScanItem
+        items.push({
+          id: `cache_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          path: discovery.path,
+          sizeBytes: discovery.sizeBytes,
+          discoveredAt: new Date().toISOString(),
+          category: discovery.category,
+          reason: `${discovery.description} (${(discovery.sizeBytes / 1024 / 1024).toFixed(1)}MB)`,
+          safeToDelete: discovery.safeToDelete,
+          confidence: discovery.confidence,
+          metadata: {
+            matched: discovery.matched,
+            sizeMB: Math.round((discovery.sizeBytes / 1024 / 1024) * 10) / 10,
+            category: discovery.category,
+          },
+        });
+
+        // Report progress
+        if (options.onProgress) {
+          options.onProgress(items.length / Math.max(discoveries.length, 1));
         }
       }
     } catch (error) {
-      Logger.debug(this.id, `Failed to read directory: ${dirPath}`);
+      Logger.error(this.id, "Smart cache discovery failed", {
+        error: error instanceof Error ? error.message : "Unknown",
+      });
     }
 
     return items;
@@ -112,120 +168,140 @@ export class SystemJunkScanner extends BaseScanner {
 
   private async scanTempFiles(options: ScanOptions): Promise<ScanItem[]> {
     const items: ScanItem[] = [];
-    const tempPath = tmpdir();
     const minAge = 24 * 60 * 60 * 1000; // 24 hours
 
-    try {
-      if (!existsSync(tempPath)) return items;
+    // Multiple temp locations to check
+    const tempLocations = [
+      tmpdir(),
+      "/private/tmp",
+      "/var/tmp",
+      join(homedir(), ".cache/tmp"),
+      join(homedir(), "Library/Caches/Temporary Items"),
+    ];
 
-      const entries = await fs.readdir(tempPath, { withFileTypes: true });
+    for (const tempPath of tempLocations) {
+      try {
+        if (!existsSync(tempPath)) continue;
 
-      for (const entry of entries) {
-        if (options.cancelToken?.cancelled) break;
+        const entries = await fs.readdir(tempPath, { withFileTypes: true });
 
-        const fullPath = join(tempPath, entry.name);
+        for (const entry of entries) {
+          if (options.cancelToken?.cancelled) break;
 
-        try {
-          const stats = await fs.stat(fullPath);
-          const age = Date.now() - stats.mtime.getTime();
+          const fullPath = join(tempPath, entry.name);
 
-          // Only include old temp files
-          if (age >= minAge) {
-            const ageInDays = age / (1000 * 60 * 60 * 24);
+          try {
+            const stats = await fs.stat(fullPath);
+            const age = Date.now() - stats.mtime.getTime();
 
-            if (entry.isFile()) {
-              items.push({
-                id: `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                path: fullPath,
-                sizeBytes: stats.size,
-                discoveredAt: new Date().toISOString(),
-                category: "temp-file",
-                reason: `Temporary file (${ageInDays.toFixed(0)} days old)`,
-                safeToDelete: true,
-                confidence: 0.95,
-                metadata: {
-                  fileName: entry.name,
-                  ageInDays: Math.floor(ageInDays),
-                },
-              });
-            } else if (entry.isDirectory()) {
-              const size = await FileOperations.getDirectorySize(fullPath);
-              if (size > 0) {
+            // Only include old temp files
+            if (age >= minAge) {
+              const ageInDays = age / (1000 * 60 * 60 * 24);
+
+              if (entry.isFile()) {
                 items.push({
-                  id: `temp_dir_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                  id: `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                   path: fullPath,
-                  sizeBytes: size,
+                  sizeBytes: stats.size,
                   discoveredAt: new Date().toISOString(),
-                  category: "temp-directory",
-                  reason: `Temporary directory (${ageInDays.toFixed(0)} days old, ${(size / 1024 / 1024).toFixed(1)}MB)`,
+                  category: "temp-file",
+                  reason: `Temporary file (${ageInDays.toFixed(0)} days old)`,
                   safeToDelete: true,
-                  confidence: 0.9,
+                  confidence: 0.95,
                   metadata: {
-                    dirName: entry.name,
+                    fileName: entry.name,
                     ageInDays: Math.floor(ageInDays),
-                    sizeMB: Math.round(size / 1024 / 1024 * 10) / 10,
                   },
                 });
+              } else if (entry.isDirectory()) {
+                const size = await FileOperations.getDirectorySize(fullPath);
+                if (size > 1024 * 1024) {
+                  // Only directories > 1MB
+                  items.push({
+                    id: `temp_dir_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                    path: fullPath,
+                    sizeBytes: size,
+                    discoveredAt: new Date().toISOString(),
+                    category: "temp-directory",
+                    reason: `Temporary directory (${ageInDays.toFixed(0)} days old, ${(size / 1024 / 1024).toFixed(1)}MB)`,
+                    safeToDelete: true,
+                    confidence: 0.9,
+                    metadata: {
+                      dirName: entry.name,
+                      ageInDays: Math.floor(ageInDays),
+                      sizeMB: Math.round((size / 1024 / 1024) * 10) / 10,
+                    },
+                  });
+                }
               }
             }
+          } catch (error) {
+            // Skip files we can't access
           }
-        } catch (error) {
-          Logger.debug(this.id, `Failed to process temp file: ${fullPath}`);
         }
+      } catch (error) {
+        Logger.debug(this.id, `Failed to scan temp location: ${tempPath}`);
       }
-    } catch (error) {
-      Logger.warn(this.id, `Failed to scan temp directory: ${tempPath}`);
     }
 
     return items;
   }
 
-  private async scanDevelopmentArtifacts(options: ScanOptions): Promise<ScanItem[]> {
+  private async scanDevelopmentArtifacts(
+    options: ScanOptions
+  ): Promise<ScanItem[]> {
     const items: ScanItem[] = [];
-    const home = homedir();
 
-    const devPaths = [
-      join(home, ".npm/_cacache"),
-      join(home, ".yarn/cache"),
-      join(home, ".cache/pip"),
-      join(home, "Library/Caches/Homebrew"),
-      join(home, "Library/Caches/com.apple.dt.Xcode"),
-      join(home, ".gradle/caches"),
-      join(home, ".m2/repository"),
-    ];
+    Logger.info(this.id, "Scanning development artifacts with smart discovery");
 
-    for (const devPath of devPaths) {
-      if (options.cancelToken?.cancelled) break;
+    try {
+      // Use SmartCacheDiscovery to find dev caches
+      const discoveries = await SmartCacheDiscovery.discoverCaches(1); // Min 1MB
 
-      try {
-        if (!existsSync(devPath)) continue;
+      // Filter for dev-cache category
+      const devDiscoveries = discoveries.filter(
+        (d) => d.category === "dev-cache"
+      );
 
-        const size = await FileOperations.getDirectorySize(devPath);
-        
-        // Report caches over 50MB
-        if (size > 50 * 1024 * 1024) {
-          const pathParts = devPath.split("/");
-          const toolName = pathParts[pathParts.length - 1] || "dev-cache";
+      Logger.info(
+        this.id,
+        `Found ${devDiscoveries.length} development cache locations`
+      );
 
-          items.push({
-            id: `dev_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            path: devPath,
-            sizeBytes: size,
-            discoveredAt: new Date().toISOString(),
-            category: "dev-cache",
-            reason: `Development cache (${toolName}, ${(size / 1024 / 1024).toFixed(1)}MB)`,
-            safeToDelete: true,
-            confidence: 0.85,
-            metadata: {
-              toolName,
-              sizeMB: Math.round(size / 1024 / 1024 * 10) / 10,
-              warning: "Will be regenerated on next use",
-            },
-          });
+      for (const discovery of devDiscoveries) {
+        if (options.cancelToken?.cancelled) break;
+
+        // Check if user has excluded this
+        const excluded = await UserExclusionsManager.shouldExclude(
+          discovery.path,
+          discovery.category
+        );
+
+        if (excluded) {
+          Logger.debug(this.id, `Skipping excluded path: ${discovery.path}`);
+          continue;
         }
-      } catch (error) {
-        Logger.debug(this.id, `Failed to scan dev path: ${devPath}`);
+
+        items.push({
+          id: `dev_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          path: discovery.path,
+          sizeBytes: discovery.sizeBytes,
+          discoveredAt: new Date().toISOString(),
+          category: discovery.category,
+          reason: `${discovery.description} (${(discovery.sizeBytes / 1024 / 1024).toFixed(1)}MB)`,
+          safeToDelete: discovery.safeToDelete,
+          confidence: discovery.confidence,
+          metadata: {
+            matched: discovery.matched,
+            sizeMB: Math.round((discovery.sizeBytes / 1024 / 1024) * 10) / 10,
+            warning: "Will be regenerated on next use",
+          },
+        });
       }
+    } catch (error) {
+      Logger.error(this.id, "Failed to scan dev artifacts", {
+        error: error instanceof Error ? error.message : "Unknown",
+      });
     }
 
     return items;
@@ -235,22 +311,48 @@ export class SystemJunkScanner extends BaseScanner {
     items: ScanItem[],
     options: { backup: boolean; quarantine: boolean }
   ): Promise<CleanResult> {
-    Logger.info(this.id, `Cleaning ${items.length} system junk items`, {
-      quarantine: options.quarantine,
-    });
+    Logger.info(
+      this.id,
+      `🧹 STARTING CLEAN: ${items.length} system junk items`,
+      {
+        quarantine: options.quarantine,
+      }
+    );
 
-    const paths = items.map(item => item.path);
+    const paths = items.map((item) => item.path);
+
+    // Log what we're about to clean for debugging
+    for (let i = 0; i < Math.min(paths.length, 10); i++) {
+      const item = items[i];
+      Logger.info(
+        this.id,
+        `📂 Will clean: ${item.path} (${(item.sizeBytes / 1024 / 1024).toFixed(1)}MB)`
+      );
+    }
+    if (paths.length > 10) {
+      Logger.info(this.id, `... and ${paths.length - 10} more items`);
+    }
+
     const result = await FileOperations.safeDelete(paths, this.id, {
       quarantine: options.quarantine,
       dryRun: false,
-      maxAge: 1, // Only delete items older than 1 day
+      maxAge: 0, // ✅ FIX: Remove age restriction for cache files
     });
 
-    Logger.info(this.id, "Clean complete", {
+    Logger.info(this.id, "🏁 CLEAN COMPLETE", {
       filesDeleted: result.filesDeleted,
-      spaceFreed: result.spaceFreed,
+      spaceFreedMB: (result.spaceFreed / 1024 / 1024).toFixed(1),
       errors: result.errors.length,
+      errorDetails: result.errors.length > 0 ? result.errors.slice(0, 5) : [],
     });
+
+    // Log errors for debugging
+    if (result.errors.length > 0) {
+      Logger.error(this.id, "❌ Cleaning errors encountered:", {
+        firstFewErrors: result.errors.slice(0, 3),
+        totalErrors: result.errors.length,
+      });
+    }
 
     return {
       success: result.success,

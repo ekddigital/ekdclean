@@ -88,6 +88,16 @@ export interface ElectronAPI {
   }>;
   getRecentActivity: () => Promise<ActivityItem[]>;
   cleanFiles: (scanResults: ScanResult[]) => Promise<CleanResult>;
+
+  // Permission Management
+  checkAllPermissions: () => Promise<any>;
+  getPermissionChecks: () => Promise<any[]>;
+  getPermissionSummary: () => Promise<any>;
+  shouldRequestPermissions: () => Promise<boolean>;
+  requestPermissions: () => Promise<boolean>;
+  showPermissionGuidance: () => Promise<boolean>;
+  openSystemPreferences: () => Promise<boolean>;
+
   // IPC event methods for progress tracking
   onCleanProgress: (
     callback: (progress: {

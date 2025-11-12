@@ -7,6 +7,7 @@ import crypto from "crypto";
 import { PlatformPaths } from "../platform-adapters/paths";
 import { QuarantineManager } from "./quarantine";
 import { WhitelistManager } from "./whitelist";
+import { Logger } from "../logger";
 
 export type DeleteOptions = {
   dryRun?: boolean;
@@ -37,6 +38,16 @@ export class FileOperations {
       quarantineIds: [],
     };
 
+    Logger.info(
+      "FileOperations",
+      `🗑️ Starting deletion of ${paths.length} paths`,
+      {
+        category,
+        quarantine: options.quarantine,
+        dryRun: options.dryRun,
+      }
+    );
+
     // Dry run - just report what would be deleted
     if (options.dryRun) {
       for (const path of paths) {
@@ -46,6 +57,10 @@ export class FileOperations {
             if (stats.isFile()) {
               result.filesDeleted++;
               result.spaceFreed += stats.size;
+            } else if (stats.isDirectory()) {
+              const dirSize = await this.getDirectorySize(path);
+              result.filesDeleted++;
+              result.spaceFreed += dirSize;
             }
           }
         } catch (error) {
@@ -61,27 +76,38 @@ export class FileOperations {
         // Safety checks
         if (PlatformPaths.isProtectedPath(path)) {
           result.errors.push(`Protected path: ${path}`);
+          Logger.warn("FileOperations", `⚠️ Skipped protected path: ${path}`);
           continue;
         }
 
         if (await WhitelistManager.isWhitelisted(path)) {
           result.errors.push(`Whitelisted: ${path}`);
+          Logger.warn("FileOperations", `⚠️ Skipped whitelisted path: ${path}`);
           continue;
         }
 
         if (!existsSync(path)) {
+          Logger.debug("FileOperations", `📁 Path already deleted: ${path}`);
           continue; // Already deleted
         }
 
         const stats = await fs.stat(path);
 
-        // Check age requirement
-        if (options.maxAge) {
-          const ageInDays = (Date.now() - stats.mtime.getTime()) / (1000 * 60 * 60 * 24);
+        // Check age requirement (only if specified)
+        if (options.maxAge && options.maxAge > 0) {
+          const ageInDays =
+            (Date.now() - stats.mtime.getTime()) / (1000 * 60 * 60 * 24);
           if (ageInDays < options.maxAge) {
+            Logger.debug(
+              "FileOperations",
+              `⏰ Skipping recent file: ${path} (${ageInDays.toFixed(1)} days old)`
+            );
             continue;
           }
         }
+
+        const sizeMB = (stats.size / 1024 / 1024).toFixed(1);
+        Logger.info("FileOperations", `🗂️ Processing: ${path} (${sizeMB}MB)`);
 
         // Quarantine if requested
         if (options.quarantine) {
@@ -94,10 +120,14 @@ export class FileOperations {
             result.quarantineIds?.push(quarantineId);
             result.filesDeleted++;
             result.spaceFreed += stats.size;
-          } catch (error) {
-            result.errors.push(
-              `Quarantine failed for ${path}: ${error instanceof Error ? error.message : "Unknown"}`
+            Logger.info(
+              "FileOperations",
+              `✅ Quarantined: ${path} (${sizeMB}MB)`
             );
+          } catch (error) {
+            const errorMsg = `Quarantine failed for ${path}: ${error instanceof Error ? error.message : "Unknown"}`;
+            result.errors.push(errorMsg);
+            Logger.error("FileOperations", `❌ ${errorMsg}`);
           }
         } else {
           // Direct deletion (use with caution)
@@ -105,20 +135,49 @@ export class FileOperations {
             await fs.unlink(path);
             result.filesDeleted++;
             result.spaceFreed += stats.size;
+            Logger.info(
+              "FileOperations",
+              `🗑️ Deleted file: ${path} (${sizeMB}MB)`
+            );
           } else if (stats.isDirectory()) {
+            // Get directory size before deletion
+            const dirSize = await this.getDirectorySize(path);
+            const dirSizeMB = (dirSize / 1024 / 1024).toFixed(1);
+
+            Logger.info(
+              "FileOperations",
+              `📂 Deleting directory: ${path} (${dirSizeMB}MB)`
+            );
+
             // Recursively delete directory
-            const dirResult = await this.deleteDirectory(path, category, options);
+            const dirResult = await this.deleteDirectory(
+              path,
+              category,
+              options
+            );
             result.filesDeleted += dirResult.filesDeleted;
             result.spaceFreed += dirResult.spaceFreed;
             result.errors.push(...dirResult.errors);
+
+            Logger.info(
+              "FileOperations",
+              `✅ Directory deleted: ${path} (${dirSizeMB}MB, ${dirResult.filesDeleted} files)`
+            );
           }
         }
       } catch (error) {
-        result.errors.push(
-          `Failed to delete ${path}: ${error instanceof Error ? error.message : "Unknown"}`
-        );
+        const errorMsg = `Failed to delete ${path}: ${error instanceof Error ? error.message : "Unknown"}`;
+        result.errors.push(errorMsg);
+        Logger.error("FileOperations", `❌ ${errorMsg}`);
       }
     }
+
+    Logger.info("FileOperations", `🏁 Deletion complete`, {
+      filesDeleted: result.filesDeleted,
+      spaceFreedMB: (result.spaceFreed / 1024 / 1024).toFixed(1),
+      errors: result.errors.length,
+      success: result.success,
+    });
 
     result.success = result.errors.length === 0;
     return result;
@@ -138,6 +197,10 @@ export class FileOperations {
     };
 
     try {
+      Logger.debug(
+        "FileOperations",
+        `📂 Processing directory contents: ${dirPath}`
+      );
       const entries = await fs.readdir(dirPath, { withFileTypes: true });
 
       for (const entry of entries) {
@@ -145,7 +208,11 @@ export class FileOperations {
 
         try {
           if (entry.isDirectory()) {
-            const subResult = await this.deleteDirectory(fullPath, category, options);
+            const subResult = await this.deleteDirectory(
+              fullPath,
+              category,
+              options
+            );
             result.filesDeleted += subResult.filesDeleted;
             result.spaceFreed += subResult.spaceFreed;
             result.errors.push(...subResult.errors);
@@ -154,24 +221,40 @@ export class FileOperations {
             await fs.unlink(fullPath);
             result.filesDeleted++;
             result.spaceFreed += stats.size;
+            Logger.debug(
+              "FileOperations",
+              `🗑️ Deleted file in directory: ${fullPath}`
+            );
           }
         } catch (error) {
-          result.errors.push(
-            `Failed to delete ${fullPath}: ${error instanceof Error ? error.message : "Unknown"}`
-          );
+          const errorMsg = `Failed to delete ${fullPath}: ${error instanceof Error ? error.message : "Unknown"}`;
+          result.errors.push(errorMsg);
+          Logger.warn("FileOperations", `⚠️ ${errorMsg}`);
         }
       }
 
       // Try to remove the directory itself
       try {
         await fs.rmdir(dirPath);
-      } catch {
-        // Directory may not be empty or other issues
+        Logger.debug("FileOperations", `📁 Directory removed: ${dirPath}`);
+      } catch (error) {
+        // Directory may not be empty or other issues - try force removal
+        try {
+          await fs.rm(dirPath, { recursive: true, force: true });
+          Logger.debug(
+            "FileOperations",
+            `🔥 Force removed directory: ${dirPath}`
+          );
+        } catch (forceError) {
+          const errorMsg = `Failed to remove directory ${dirPath}: ${forceError instanceof Error ? forceError.message : "Unknown"}`;
+          result.errors.push(errorMsg);
+          Logger.warn("FileOperations", `⚠️ ${errorMsg}`);
+        }
       }
     } catch (error) {
-      result.errors.push(
-        `Failed to process directory ${dirPath}: ${error instanceof Error ? error.message : "Unknown"}`
-      );
+      const errorMsg = `Failed to process directory ${dirPath}: ${error instanceof Error ? error.message : "Unknown"}`;
+      result.errors.push(errorMsg);
+      Logger.error("FileOperations", `❌ ${errorMsg}`);
     }
 
     return result;
@@ -184,7 +267,9 @@ export class FileOperations {
       hash.update(data);
       return hash.digest("hex");
     } catch (error) {
-      throw new Error(`Failed to calculate checksum: ${error instanceof Error ? error.message : "Unknown"}`);
+      throw new Error(
+        `Failed to calculate checksum: ${error instanceof Error ? error.message : "Unknown"}`
+      );
     }
   }
 

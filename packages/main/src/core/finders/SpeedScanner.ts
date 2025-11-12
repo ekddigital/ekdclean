@@ -12,6 +12,8 @@ import {
   SupportedOS,
 } from "../scanner-core/types";
 import { Logger } from "../logger";
+import { UserExclusionsManager } from "../safety/user-exclusions";
+import { PermissionManager } from "../permissions/PermissionManager";
 
 export type StartupItem = {
   name: string;
@@ -29,19 +31,44 @@ export class SpeedScanner extends BaseScanner {
 
   async scan(options: ScanOptions): Promise<ScanItem[]> {
     Logger.info(this.id, "Starting speed scan");
+
+    // Check if speed scanning is enabled by user
+    const speedDisabled = await UserExclusionsManager.shouldExclude(
+      "",
+      "speed"
+    );
+    if (speedDisabled) {
+      Logger.info(this.id, "Speed scanning disabled by user preferences");
+      return [];
+    }
+
+    const permissionManager = PermissionManager.getInstance();
     const items: ScanItem[] = [];
 
-    // Scan startup items
-    const startupItems = await this.scanStartupItems(options);
-    items.push(...startupItems);
+    try {
+      // Scan startup items
+      const startupItems = await this.scanStartupItems(options);
+      items.push(...startupItems);
 
-    // Scan launch agents (macOS)
-    const launchAgents = await this.scanLaunchAgents(options);
-    items.push(...launchAgents);
+      // Scan launch agents (macOS)
+      const launchAgents = await this.scanLaunchAgents(options);
+      items.push(...launchAgents);
 
-    // Scan background services
-    const services = await this.scanBackgroundServices(options);
-    items.push(...services);
+      // Scan background services
+      const services = await this.scanBackgroundServices(options);
+      items.push(...services);
+    } catch (error) {
+      // Handle permission errors for system configuration
+      if (error instanceof Error && error.message.includes("EPERM")) {
+        await permissionManager.handlePermissionError(
+          "system configuration",
+          error as NodeJS.ErrnoException
+        );
+      }
+      Logger.error(this.id, "Speed scan failed", {
+        error: error instanceof Error ? error.message : "Unknown",
+      });
+    }
 
     Logger.info(this.id, `Speed scan complete. Found ${items.length} items`);
     return items;

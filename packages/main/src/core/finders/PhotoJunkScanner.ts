@@ -6,47 +6,95 @@ import { join, extname } from "path";
 import { homedir } from "os";
 import crypto from "crypto";
 import { BaseScanner } from "../scanner-core/BaseScanner";
-import { ScanItem, ScanOptions, CleanResult, SupportedOS } from "../scanner-core/types";
+import {
+  ScanItem,
+  ScanOptions,
+  CleanResult,
+  SupportedOS,
+} from "../scanner-core/types";
 import { FileOperations } from "../file-ops/operations";
 import { Logger } from "../logger";
+import { UserExclusionsManager } from "../safety/user-exclusions";
+import { PermissionManager } from "../permissions/PermissionManager";
 
 export class PhotoJunkScanner extends BaseScanner {
   readonly id = "photo-junk";
   readonly name = "Photo Junk";
-  readonly description = "Find duplicate photos, thumbnails, and photo cache files";
+  readonly description =
+    "Find duplicate photos, thumbnails, and photo cache files";
   readonly supportedOS: SupportedOS[] = ["mac", "win", "linux"];
 
-  private photoExtensions = [".jpg", ".jpeg", ".png", ".heic", ".heif", ".raw", ".cr2", ".nef"];
+  private photoExtensions = [
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".heic",
+    ".heif",
+    ".raw",
+    ".cr2",
+    ".nef",
+  ];
   private thumbnailPatterns = ["thumb", "thumbnail", ".thumb", "_thumb"];
 
   async scan(options: ScanOptions): Promise<ScanItem[]> {
     Logger.info(this.id, "Starting photo junk scan");
+
+    // Check if photo scanning is enabled by user
+    const photosEnabled = await UserExclusionsManager.shouldExclude(
+      "",
+      "photo-junk"
+    );
+    if (photosEnabled) {
+      Logger.info(this.id, "Photo junk scanning disabled by user preferences");
+      return [];
+    }
+
+    const permissionManager = PermissionManager.getInstance();
     const items: ScanItem[] = [];
 
-    // Scan for photo caches
-    const cacheItems = await this.scanPhotoCaches(options);
-    items.push(...cacheItems);
+    try {
+      // Scan for photo caches
+      const cacheItems = await this.scanPhotoCaches(options);
+      items.push(...cacheItems);
 
-    // Scan for duplicate photos
-    const duplicates = await this.scanDuplicates(options);
-    items.push(...duplicates);
+      // Scan for duplicate photos
+      const duplicates = await this.scanDuplicates(options);
+      items.push(...duplicates);
 
-    // Scan for thumbnails
-    const thumbnails = await this.scanThumbnails(options);
-    items.push(...thumbnails);
+      // Scan for thumbnails
+      const thumbnails = await this.scanThumbnails(options);
+      items.push(...thumbnails);
+    } catch (error) {
+      // Handle permission errors
+      if (error instanceof Error && error.message.includes("EPERM")) {
+        await permissionManager.handlePermissionError(
+          "photo libraries",
+          error as NodeJS.ErrnoException
+        );
+      }
+      Logger.error(this.id, "Photo scan failed", {
+        error: error instanceof Error ? error.message : "Unknown",
+      });
+    }
 
-    Logger.info(this.id, `Photo junk scan complete. Found ${items.length} items`);
+    Logger.info(
+      this.id,
+      `Photo junk scan complete. Found ${items.length} items`
+    );
     return items;
   }
 
   private async scanPhotoCaches(options: ScanOptions): Promise<ScanItem[]> {
     const items: ScanItem[] = [];
     const home = homedir();
-    
+
     const cachePaths = [
       join(home, "Library/Caches/com.apple.Photos"),
       join(home, "Library/Caches/com.apple.iPhoto"),
-      join(home, "AppData/Local/Packages/Microsoft.Windows.Photos_*/LocalCache"),
+      join(
+        home,
+        "AppData/Local/Packages/Microsoft.Windows.Photos_*/LocalCache"
+      ),
     ];
 
     for (const cachePath of cachePaths) {
@@ -54,6 +102,17 @@ export class PhotoJunkScanner extends BaseScanner {
 
       try {
         if (!existsSync(cachePath)) continue;
+
+        // Check if user has excluded this path
+        const excluded = await UserExclusionsManager.shouldExclude(
+          cachePath,
+          "photo-cache"
+        );
+
+        if (excluded) {
+          Logger.debug(this.id, `Skipping excluded photo cache: ${cachePath}`);
+          continue;
+        }
 
         const size = await FileOperations.getDirectorySize(cachePath);
         if (size > 0) {
@@ -82,10 +141,7 @@ export class PhotoJunkScanner extends BaseScanner {
   private async scanDuplicates(options: ScanOptions): Promise<ScanItem[]> {
     const items: ScanItem[] = [];
     const home = homedir();
-    const searchPaths = [
-      join(home, "Pictures"),
-      join(home, "Downloads"),
-    ];
+    const searchPaths = [join(home, "Pictures"), join(home, "Downloads")];
 
     const fileHashes = new Map<string, string[]>();
 
@@ -115,7 +171,9 @@ export class PhotoJunkScanner extends BaseScanner {
           })
         );
 
-        const validPaths = pathsWithStats.filter((p): p is NonNullable<typeof p> => p !== null);
+        const validPaths = pathsWithStats.filter(
+          (p): p is NonNullable<typeof p> => p !== null
+        );
         validPaths.sort((a, b) => b.mtime - a.mtime);
 
         // Mark all but the newest as duplicates
@@ -184,7 +242,7 @@ export class PhotoJunkScanner extends BaseScanner {
   private async scanThumbnails(options: ScanOptions): Promise<ScanItem[]> {
     const items: ScanItem[] = [];
     const home = homedir();
-    
+
     const searchPaths = [
       join(home, "Library/Caches"),
       join(home, ".cache"),
@@ -240,7 +298,11 @@ export class PhotoJunkScanner extends BaseScanner {
               },
             });
           } else if (entry.isDirectory() && !entry.name.startsWith(".")) {
-            const subItems = await this.findThumbnails(fullPath, options, depth + 1);
+            const subItems = await this.findThumbnails(
+              fullPath,
+              options,
+              depth + 1
+            );
             items.push(...subItems);
           }
         } catch (error) {
@@ -260,7 +322,7 @@ export class PhotoJunkScanner extends BaseScanner {
   }
 
   private isThumbnailFile(fileName: string): boolean {
-    return this.thumbnailPatterns.some(pattern => fileName.includes(pattern));
+    return this.thumbnailPatterns.some((pattern) => fileName.includes(pattern));
   }
 
   private async quickHash(filePath: string, size: number): Promise<string> {
@@ -271,11 +333,11 @@ export class PhotoJunkScanner extends BaseScanner {
 
       const buffer = Buffer.alloc(Math.min(1024, size));
       const fd = await fs.open(filePath, "r");
-      
+
       try {
         await fd.read(buffer, 0, buffer.length, 0);
         hash.update(buffer);
-        
+
         if (size > 2048) {
           await fd.read(buffer, 0, Math.min(1024, size - 1024), size - 1024);
           hash.update(buffer);
@@ -286,7 +348,9 @@ export class PhotoJunkScanner extends BaseScanner {
 
       return hash.digest("hex");
     } catch (error) {
-      throw new Error(`Failed to hash file: ${error instanceof Error ? error.message : "Unknown"}`);
+      throw new Error(
+        `Failed to hash file: ${error instanceof Error ? error.message : "Unknown"}`
+      );
     }
   }
 
@@ -298,7 +362,7 @@ export class PhotoJunkScanner extends BaseScanner {
       quarantine: options.quarantine,
     });
 
-    const paths = items.map(item => item.path);
+    const paths = items.map((item) => item.path);
     const result = await FileOperations.safeDelete(paths, this.id, {
       quarantine: options.quarantine,
       dryRun: false,

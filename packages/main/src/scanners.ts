@@ -10,6 +10,7 @@ import { PhotoJunkScanner } from "./core/finders/PhotoJunkScanner";
 import { MailAttachmentsScanner } from "./core/finders/MailAttachmentsScanner";
 import { PrivacyScanner } from "./core/finders/PrivacyScanner";
 import { SpeedScanner } from "./core/finders/SpeedScanner";
+import { ScanItem } from "./core/scanner-core/types";
 import { Logger } from "./core/logger";
 
 export function initializeScanners(): void {
@@ -31,46 +32,53 @@ export function initializeScanners(): void {
   );
 }
 
-export async function runSmartScan(options: {
-  dryRun?: boolean;
-  onProgress?: (scanner: string, progress: number) => void;
-}): Promise<any[]> {
-  const scanners = ScannerRegistry.getSupportedScanners(platform());
-  const allItems: any[] = [];
+export async function runSmartScan(
+  progressCallback?: (progress: number) => void
+): Promise<ScanItem[]> {
+  Logger.info("Scanners", "🚀 Starting smart scan");
 
+  // Get all supported scanners for the current platform
+  const scanners = ScannerRegistry.getSupportedScanners(platform());
+  const totalScanners = scanners.length;
+
+  // DEBUG: Log which scanners are being returned
+  const scannerNames = scanners.map((scanner) => scanner.constructor.name);
   Logger.info(
-    "SmartScan",
-    `Running smart scan with ${scanners.length} scanners`
+    "Scanners",
+    `🔍 Running scan with ${totalScanners} scanners on ${platform()}: ${scannerNames.join(", ")}`
   );
 
-  for (let i = 0; i < scanners.length; i++) {
-    const scanner = scanners[i];
+  const allItems: ScanItem[] = [];
+  let completedScanners = 0;
 
+  for (const scanner of scanners) {
     try {
-      Logger.info("SmartScan", `Running scanner: ${scanner.name}`);
+      Logger.info("Scanners", `Starting scan with ${scanner.constructor.name}`);
 
-      const items = await scanner.scan({
-        dryRun: options.dryRun !== false,
-        onProgress: (progress) => {
-          if (options.onProgress) {
-            const overallProgress = (i + progress) / scanners.length;
-            options.onProgress(scanner.name, overallProgress);
-          }
-        },
-      });
+      const items = await scanner.scan({ dryRun: false });
+
+      Logger.info(
+        "Scanners",
+        `✅ ${scanner.constructor.name} completed: ${items.length} items found`
+      );
 
       allItems.push(...items);
-      Logger.info("SmartScan", `${scanner.name} found ${items.length} items`);
+
+      completedScanners++;
+      if (progressCallback) {
+        progressCallback(completedScanners / totalScanners);
+      }
     } catch (error) {
-      Logger.error("SmartScan", `Scanner ${scanner.name} failed`, {
-        error: error instanceof Error ? error.message : "Unknown",
-      });
+      Logger.error(
+        "Scanners",
+        `❌ Error in ${scanner.constructor.name}: ${error}`
+      );
     }
   }
 
   Logger.info(
-    "SmartScan",
-    `Smart scan complete. Found ${allItems.length} total items`
+    "Scanners",
+    `🏁 Smart scan completed: ${allItems.length} total items found`
   );
   return allItems;
 }

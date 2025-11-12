@@ -4,10 +4,17 @@
 import { promises as fs, existsSync } from "fs";
 import { join } from "path";
 import { BaseScanner } from "../scanner-core/BaseScanner";
-import { ScanItem, ScanOptions, CleanResult, SupportedOS } from "../scanner-core/types";
+import {
+  ScanItem,
+  ScanOptions,
+  CleanResult,
+  SupportedOS,
+} from "../scanner-core/types";
 import { PlatformPaths } from "../platform-adapters/paths";
 import { FileOperations } from "../file-ops/operations";
 import { Logger } from "../logger";
+import { UserExclusionsManager } from "../safety/user-exclusions";
+import { PermissionManager } from "../permissions/PermissionManager";
 
 export class TrashBinsScanner extends BaseScanner {
   readonly id = "trash-bins";
@@ -17,6 +24,10 @@ export class TrashBinsScanner extends BaseScanner {
 
   async scan(options: ScanOptions): Promise<ScanItem[]> {
     Logger.info(this.id, "Starting trash bins scan");
+
+    // Check permissions for trash access
+    const permissionManager = PermissionManager.getInstance();
+
     const items: ScanItem[] = [];
     const trashPaths = PlatformPaths.getTrashPaths();
 
@@ -26,6 +37,17 @@ export class TrashBinsScanner extends BaseScanner {
       try {
         if (!existsSync(trashPath)) continue;
 
+        // Check if user has excluded trash scanning
+        const excluded = await UserExclusionsManager.shouldExclude(
+          trashPath,
+          "trash"
+        );
+
+        if (excluded) {
+          Logger.debug(this.id, `Skipping excluded trash path: ${trashPath}`);
+          continue;
+        }
+
         const trashItems = await this.scanTrashLocation(trashPath);
         items.push(...trashItems);
 
@@ -34,6 +56,14 @@ export class TrashBinsScanner extends BaseScanner {
           options.onProgress(Math.min(progress, 0.9));
         }
       } catch (error) {
+        // Handle permission errors specifically
+        if (error instanceof Error && error.message.includes("EPERM")) {
+          await permissionManager.handlePermissionError(
+            trashPath,
+            error as NodeJS.ErrnoException
+          );
+        }
+
         Logger.warn(this.id, `Failed to scan trash location: ${trashPath}`, {
           error: error instanceof Error ? error.message : "Unknown",
         });
@@ -57,7 +87,8 @@ export class TrashBinsScanner extends BaseScanner {
 
         try {
           const stats = await fs.stat(fullPath);
-          const ageInDays = (Date.now() - stats.mtime.getTime()) / (1000 * 60 * 60 * 24);
+          const ageInDays =
+            (Date.now() - stats.mtime.getTime()) / (1000 * 60 * 60 * 24);
 
           items.push({
             id: `trash_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -97,7 +128,7 @@ export class TrashBinsScanner extends BaseScanner {
       quarantine: options.quarantine,
     });
 
-    const paths = items.map(item => item.path);
+    const paths = items.map((item) => item.path);
     const result = await FileOperations.safeDelete(paths, this.id, {
       quarantine: options.quarantine,
       dryRun: false,

@@ -5,9 +5,16 @@ import { promises as fs, existsSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 import { BaseScanner } from "../scanner-core/BaseScanner";
-import { ScanItem, ScanOptions, CleanResult, SupportedOS } from "../scanner-core/types";
+import {
+  ScanItem,
+  ScanOptions,
+  CleanResult,
+  SupportedOS,
+} from "../scanner-core/types";
 import { FileOperations } from "../file-ops/operations";
 import { Logger } from "../logger";
+import { UserExclusionsManager } from "../safety/user-exclusions";
+import { PermissionManager } from "../permissions/PermissionManager";
 
 export class MailAttachmentsScanner extends BaseScanner {
   readonly id = "mail-attachments";
@@ -19,28 +26,59 @@ export class MailAttachmentsScanner extends BaseScanner {
 
   async scan(options: ScanOptions): Promise<ScanItem[]> {
     Logger.info(this.id, "Starting mail attachments scan");
+
+    // Check if mail scanning is enabled by user
+    const mailDisabled = await UserExclusionsManager.shouldExclude(
+      "",
+      "mail-attachments"
+    );
+    if (mailDisabled) {
+      Logger.info(
+        this.id,
+        "Mail attachments scanning disabled by user preferences"
+      );
+      return [];
+    }
+
+    const permissionManager = PermissionManager.getInstance();
     const items: ScanItem[] = [];
 
-    // Scan Apple Mail attachments (macOS)
-    const appleMailItems = await this.scanAppleMail(options);
-    items.push(...appleMailItems);
+    try {
+      // Scan Apple Mail attachments (macOS)
+      const appleMailItems = await this.scanAppleMail(options);
+      items.push(...appleMailItems);
 
-    // Scan Outlook attachments (Windows/Mac)
-    const outlookItems = await this.scanOutlook(options);
-    items.push(...outlookItems);
+      // Scan Outlook attachments (Windows/Mac)
+      const outlookItems = await this.scanOutlook(options);
+      items.push(...outlookItems);
 
-    // Scan Thunderbird attachments
-    const thunderbirdItems = await this.scanThunderbird(options);
-    items.push(...thunderbirdItems);
+      // Scan Thunderbird attachments
+      const thunderbirdItems = await this.scanThunderbird(options);
+      items.push(...thunderbirdItems);
+    } catch (error) {
+      // Handle permission errors for mail directories
+      if (error instanceof Error && error.message.includes("EPERM")) {
+        await permissionManager.handlePermissionError(
+          "mail directories",
+          error as NodeJS.ErrnoException
+        );
+      }
+      Logger.error(this.id, "Mail scan failed", {
+        error: error instanceof Error ? error.message : "Unknown",
+      });
+    }
 
-    Logger.info(this.id, `Mail attachments scan complete. Found ${items.length} items`);
+    Logger.info(
+      this.id,
+      `Mail attachments scan complete. Found ${items.length} items`
+    );
     return items;
   }
 
   private async scanAppleMail(options: ScanOptions): Promise<ScanItem[]> {
     const items: ScanItem[] = [];
     const home = homedir();
-    
+
     const mailPaths = [
       join(home, "Library/Mail/V**/MailData/Attachments"),
       join(home, "Library/Mail Downloads"),
@@ -51,8 +89,9 @@ export class MailAttachmentsScanner extends BaseScanner {
 
       try {
         // Handle glob patterns
-        const basePath = mailPath.includes("*") ? 
-          join(home, "Library/Mail") : mailPath;
+        const basePath = mailPath.includes("*")
+          ? join(home, "Library/Mail")
+          : mailPath;
 
         if (!existsSync(basePath)) continue;
 
@@ -74,9 +113,12 @@ export class MailAttachmentsScanner extends BaseScanner {
   private async scanOutlook(options: ScanOptions): Promise<ScanItem[]> {
     const items: ScanItem[] = [];
     const home = homedir();
-    
+
     const outlookPaths = [
-      join(home, "Library/Group Containers/UBF8T346G9.Office/Outlook/Outlook 15 Profiles"),
+      join(
+        home,
+        "Library/Group Containers/UBF8T346G9.Office/Outlook/Outlook 15 Profiles"
+      ),
       join(home, "Documents/Outlook Files"),
       join(home, "AppData/Local/Microsoft/Outlook"),
     ];
@@ -105,7 +147,7 @@ export class MailAttachmentsScanner extends BaseScanner {
   private async scanThunderbird(options: ScanOptions): Promise<ScanItem[]> {
     const items: ScanItem[] = [];
     const home = homedir();
-    
+
     const thunderbirdPaths = [
       join(home, "Library/Thunderbird/Profiles"),
       join(home, ".thunderbird"),
@@ -157,10 +199,11 @@ export class MailAttachmentsScanner extends BaseScanner {
         try {
           if (entry.isFile()) {
             const stats = await fs.stat(fullPath);
-            
+
             // Only report large attachments
             if (stats.size >= this.minSizeBytes) {
-              const ageInDays = (Date.now() - stats.mtime.getTime()) / (1000 * 60 * 60 * 24);
+              const ageInDays =
+                (Date.now() - stats.mtime.getTime()) / (1000 * 60 * 60 * 24);
               const sizeMB = stats.size / (1024 * 1024);
 
               items.push({
@@ -209,7 +252,7 @@ export class MailAttachmentsScanner extends BaseScanner {
     });
 
     // Mail attachments should ALWAYS be quarantined for safety
-    const paths = items.map(item => item.path);
+    const paths = items.map((item) => item.path);
     const result = await FileOperations.safeDelete(paths, this.id, {
       quarantine: true, // Force quarantine
       dryRun: false,

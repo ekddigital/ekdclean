@@ -15,8 +15,10 @@ import {
 } from "os";
 import { promises as fs, constants, existsSync } from "fs";
 import { SystemInfo, ScanResult, ActivityItem } from "./types";
+import { ScanItem } from "./core/scanner-core/types";
 import { initializeScanners, runSmartScan } from "./scanners";
 import { ScannerRegistry, QuarantineManager, WhitelistManager } from "./core";
+import { PermissionIPCHandlers } from "./ipc/PermissionIPCHandlers";
 
 // Real system scanning utility functions
 class SystemScanner {
@@ -620,6 +622,7 @@ class SystemScanner {
 class EKDCleanApp {
   private mainWindow: BrowserWindow | null = null;
   private tray: Tray | null = null;
+  private permissionHandlers: PermissionIPCHandlers | null = null;
 
   constructor() {
     this.initializeApp();
@@ -634,6 +637,7 @@ class EKDCleanApp {
       this.createMainWindow();
       this.createSystemTray();
       this.setupIPCHandlers();
+      this.setupPermissionHandlers();
     });
 
     // Handle app activation (macOS)
@@ -648,6 +652,11 @@ class EKDCleanApp {
       if (process.platform !== "darwin") {
         app.quit();
       }
+    });
+
+    // Handle app quit
+    app.on("before-quit", () => {
+      this.cleanup();
     });
   }
 
@@ -844,10 +853,75 @@ class EKDCleanApp {
       return await SystemScanner.getDetailedSystemInfo();
     });
 
-    // Real scanning handler
-    ipcMain.handle("scan-system", async () => {
-      return await SystemScanner.scanForJunkFiles();
+    // Real scanning handler - Using new modular scanner system
+    ipcMain.handle("scan-system", async (event) => {
+      try {
+        // Use the new runSmartScan function instead of legacy SystemScanner
+        const scanItems = await runSmartScan((progress: number) => {
+          event.sender.send("scan-progress", {
+            scanner: "smart-scan",
+            progress: Math.round(progress * 100),
+          });
+        });
+
+        // Convert ScanItems to legacy ScanResult format for UI compatibility
+        const scanResults = convertScanItemsToResults(scanItems);
+        return scanResults;
+      } catch (error) {
+        console.error("System scan failed:", error);
+        // Return empty results on error to avoid breaking the UI
+        return [];
+      }
     });
+
+    // Helper function to convert ScanItems to legacy ScanResult format
+    function convertScanItemsToResults(scanItems: ScanItem[]): ScanResult[] {
+      // Group scan items by category to create result groups
+      const categoryGroups = new Map<string, ScanItem[]>();
+
+      for (const item of scanItems) {
+        const category = item.category || "Other";
+        if (!categoryGroups.has(category)) {
+          categoryGroups.set(category, []);
+        }
+        categoryGroups.get(category)!.push(item);
+      }
+
+      // Convert each group to a ScanResult
+      const results: ScanResult[] = [];
+      let resultIndex = 0;
+
+      for (const [category, items] of categoryGroups) {
+        if (items.length === 0) continue;
+
+        const totalSize = items.reduce((sum, item) => sum + item.sizeBytes, 0);
+        const allPaths = items.map((item) => item.path).join(";");
+
+        // Determine the type based on category
+        let type: "cache" | "temp" | "log" | "duplicate" | "large" | "trash" =
+          "cache";
+        if (category.toLowerCase().includes("cache")) type = "cache";
+        else if (category.toLowerCase().includes("temp")) type = "temp";
+        else if (category.toLowerCase().includes("log")) type = "log";
+        else if (category.toLowerCase().includes("trash")) type = "trash";
+        else if (category.toLowerCase().includes("large")) type = "large";
+
+        results.push({
+          id: `result_${resultIndex++}`,
+          name: category,
+          type: type,
+          size: totalSize,
+          files: items.length,
+          path: allPaths,
+          description:
+            items[0]?.reason || `${items.length} items found in ${category}`,
+          safe: items.every((item) => item.safeToDelete),
+          scanTime: new Date(),
+        });
+      }
+
+      return results;
+    }
 
     // Legacy scan handler for compatibility
     ipcMain.handle("scan-for-junk", async () => {
@@ -1009,14 +1083,11 @@ class EKDCleanApp {
     // Run smart scan with new scanner system
     ipcMain.handle("run-smart-scan", async (event) => {
       try {
-        const items = await runSmartScan({
-          dryRun: true,
-          onProgress: (scannerName, progress) => {
-            event.sender.send("scan-progress", {
-              scanner: scannerName,
-              progress: Math.round(progress * 100),
-            });
-          },
+        const items = await runSmartScan((progress: number) => {
+          event.sender.send("scan-progress", {
+            scanner: "smart-scan",
+            progress: Math.round(progress * 100),
+          });
         });
 
         return items;
@@ -1155,6 +1226,19 @@ class EKDCleanApp {
       await WhitelistManager.initialize();
       return await WhitelistManager.removeRule(ruleId);
     });
+  }
+
+  private cleanup(): void {
+    // Cleanup permission handlers
+    if (this.permissionHandlers) {
+      this.permissionHandlers.destroy();
+      this.permissionHandlers = null;
+    }
+  }
+
+  private setupPermissionHandlers(): void {
+    // Initialize permission IPC handlers
+    this.permissionHandlers = new PermissionIPCHandlers();
   }
 }
 

@@ -44,6 +44,15 @@ export interface ElectronAPI {
   ) => Promise<string>;
   removeWhitelistRule: (ruleId: string) => Promise<boolean>;
 
+  // Permission Management
+  checkAllPermissions: () => Promise<any>;
+  getPermissionChecks: () => Promise<any[]>;
+  getPermissionSummary: () => Promise<any>;
+  shouldRequestPermissions: () => Promise<boolean>;
+  requestPermissions: () => Promise<boolean>;
+  showPermissionGuidance: () => Promise<boolean>;
+  openSystemPreferences: () => Promise<boolean>;
+
   // Window Management
   minimizeWindow: () => void;
   maximizeWindow: () => void;
@@ -116,6 +125,17 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("add-whitelist-rule", pattern, type, reason),
   removeWhitelistRule: (ruleId: string) =>
     ipcRenderer.invoke("remove-whitelist-rule", ruleId),
+
+  // Permission Management
+  checkAllPermissions: () => ipcRenderer.invoke("permissions:checkAll"),
+  getPermissionChecks: () => ipcRenderer.invoke("permissions:getChecks"),
+  getPermissionSummary: () => ipcRenderer.invoke("permissions:getSummary"),
+  shouldRequestPermissions: () =>
+    ipcRenderer.invoke("permissions:shouldRequest"),
+  requestPermissions: () => ipcRenderer.invoke("permissions:request"),
+  showPermissionGuidance: () => ipcRenderer.invoke("permissions:showGuidance"),
+  openSystemPreferences: () =>
+    ipcRenderer.invoke("permissions:openSystemPreferences"),
 
   // Window Management
   minimizeWindow: () => ipcRenderer.send("window-minimize"),
